@@ -195,6 +195,9 @@ Returns `{ statusCode: 200, message: ... }` on success.
 
 **Practical floor:** untested. The soil-sensor UI's number input has no min validation, but pushing below ~30 s on a 4G LTE-M device will hammer battery and may be silently rate-limited by the broker. Stick to ≥ 60 s unless verified otherwise.
 
+### Current state for this account (updated 2026-05-16)
+Weather station `interval` set to **60 seconds** (was 300). The device will adopt the new rate on its next config check-in. Expect MQTT pushes every ~60 s once propagated. `devBat: 4200 mV / devVin: 0` suggests battery power — monitor `bat` and `devBat` to confirm acceptable drain at the higher rate.
+
 ## Sensor field reference
 
 Sourced from `/tmp/yigrow/sensor-utils-BeZXe9ES.js` in the verified session. English labels are canonical translations (the bundle's English i18n only covers UI chrome — sensor field labels exist only in Chinese in the SPA).
