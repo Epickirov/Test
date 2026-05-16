@@ -111,7 +111,7 @@ Authorization: <accessToken>
 
 ## Live updates — MQTT over WebSockets
 
-The SPA streams realtime sensor values from the broker. Use this for live dashboard updates (the device publishes every ~30–60s).
+The SPA streams realtime sensor values from the broker. Cadence is fixed by the device's "上报间隔" (report interval) config — see "Tuning the push cadence" below; **default for this account's weather station is 300 s (~5 min)**, verified by a 10-min MQTT capture (gap 304 s) and matching the timestamp spacing in the history endpoint.
 
 **Connection:**
 - URL: `wss://brokerV2.yigrow.cn:443/mqtt/` (the trailing `/mqtt/` path is required)
@@ -158,6 +158,42 @@ client.on('message', (topic, buf) => {
   // update UI fields here
 });
 ```
+
+## Tuning the push cadence (上报间隔)
+
+The weather station exposes a per-device "Report Interval" config that drives both the MQTT push rate and how often `/v1/device/all` refreshes.
+
+### Read current value
+```
+GET https://v2024.yigrow.cn/v1/strategy-yi/device-config-all?deviceId=<deviceId>
+Authorization: <accessToken>
+```
+Returns an array of config objects. For this account's weather station:
+```json
+[
+  { "_id": "6870a344668b89b3c9b93d6c",
+    "id":  "6870a344668b89b3c9b93d6c",
+    "sn":  "000520250711000001",
+    "type": "上报间隔",
+    "name": "上报间隔配置",
+    "config": { "interval": 300 }   // seconds
+  }
+]
+```
+`interval` is in **seconds**. `300` = the observed 5-minute cadence.
+
+### Update
+```
+PUT  https://v2024.yigrow.cn/v1/strategy-yi/config
+Authorization: <accessToken>
+Content-Type: application/json
+{ "id": "<config _id from above>", "type": "上报间隔", "config": { "interval": 60 } }
+```
+Returns `{ statusCode: 200, message: ... }` on success.
+
+**SPA quirk:** the official Vue UI's "Apply" button only fires for config types literally named `4G土壤传感器-上报间隔` / `4G土壤传感器-报警配置`. The weather-station config type is just `上报间隔`, so the button does nothing in the SPA — but the backend `PUT /v1/strategy-yi/config` still accepts the same payload shape regardless. Sending it via API works; the SPA just doesn't expose the knob for this device class.
+
+**Practical floor:** untested. The soil-sensor UI's number input has no min validation, but pushing below ~30 s on a 4G LTE-M device will hammer battery and may be silently rate-limited by the broker. Stick to ≥ 60 s unless verified otherwise.
 
 ## Sensor field reference
 
@@ -359,6 +395,60 @@ Response shape:
 - `recordTime` is epoch ms.
 - `dataMap` keys are `<nodeId>_<registerId>` (note: NOT prefixed by deviceAddr inside the map, even though the request param is).
 - Sample cadence reflects `savedatainterval` — 10 min for this account → roughly 6 rows per hour per factor.
+
+## Tuning the sample/save interval (savedatainterval)
+
+Per-greenhouse hardware sample rate (= save rate = effective REST/WebSocket refresh rate) is configurable.
+
+### Endpoint
+```
+POST /device/updateDevice
+Content-Type: application/x-www-form-urlencoded; charset=UTF-8
+```
+**Body must include ALL of these fields** — the API is a full upsert, not a patch. Missing optional fields cause `code:1001` errors:
+```
+groupId=<groupId>
+deviceAddr=<int>
+deviceName=<name>
+sort=<int>
+offlineinterval=<minutes>       # offline-detection threshold
+savedatainterval=<minutes>      # ← the knob you want
+alarmSwitch=<bitmask>
+alarmRecord=<0|1>
+useMarkLocation=<true|false>
+lng=<float-or-"0">              # ⚠ NOT "" — empty string returns "经纬度不可为空"
+lat=<float-or-"0">              # ⚠ NOT "" — send "0" if device has no coords
+```
+
+### Floor
+The factor catalog (`/device/deviceWithEnabledFactorsByDeviceAddr?deviceAddr=<addr>`) returns `maxSaveDataInterval` per device — this is the **minimum** allowed sample interval (despite the misleading name). For this account's sensors it's `1`, so 1 minute is the floor. The UI also blocks `0`.
+
+### Sample working request (curl)
+```bash
+curl -b cookies.txt -X POST 'https://www.0531yun.com/device/updateDevice' \
+  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  --data-urlencode 'groupId=6610473b5d2945d989ae3e35fbcf493e' \
+  --data-urlencode 'deviceAddr=21100849' \
+  --data-urlencode 'deviceName=7号棚' \
+  --data-urlencode 'sort=7' \
+  --data-urlencode 'offlineinterval=30' \
+  --data-urlencode 'savedatainterval=1' \
+  --data-urlencode 'alarmSwitch=3' \
+  --data-urlencode 'alarmRecord=1' \
+  --data-urlencode 'useMarkLocation=false' \
+  --data-urlencode 'lng=0' \
+  --data-urlencode 'lat=0'
+# → {"code":1000,"message":"修改成功","data":true}
+```
+
+### Current state for this account (updated 2026-05-16)
+All 7 greenhouses moved from `savedatainterval=10` to `savedatainterval=1`. The new value applies on each device's next config check-in (typically within minutes), so expect REST/WebSocket data to start arriving every ~60 s shortly after.
+
+### Caveats
+- **Battery impact:** higher rates = more 4G radio transmissions = faster battery drain. Devices showing `供电状态: 外部电源供电` (mains-powered) are unaffected. Devices on internal battery (`供电状态: 电池供电` if it ever appears) will drain proportionally faster.
+- **Per-device** — no bulk-update endpoint surfaced in this bundle.
+- **Permission:** the UI greys out the form with "注:当前账号此功能受限" if the user lacks the edit bit. The `h250512kmty` account has it; sub-accounts may not.
 
 ## Real-time push — WebSocket
 
