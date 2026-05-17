@@ -1,9 +1,10 @@
 # Greenhouse dashboard — reverse-engineering handoff
 
-Two unrelated greenhouse-control platforms reverse-engineered for a future session to build simple realtime dashboards. Each platform is independently documented below.
+Three unrelated greenhouse/energy platforms reverse-engineered for a future session to build simple realtime dashboards. Each platform is independently documented below.
 
-- **Platform A — Yigrow** (`v2.yigrow.cn`): single external weather station, MQTT-over-WSS live stream, **CORS open** → pure browser-side dashboard is feasible.
+- **Platform A — Yigrow** (`v2.yigrow.cn`): single external weather station per base (this account has 2 bases), MQTT-over-WSS live stream, **CORS open** → pure browser-side dashboard is feasible.
 - **Platform B — 0531 综合环境监控云平台** (`www.0531yun.com`): per-greenhouse sensors (temp/humi/light) across 7 sheds, plain WebSocket push + REST polling, **captcha login + CORS locked** → needs a small backend/proxy.
+- **Platform C — 能源管理系统 / 云集抄表** (`nh2.yunjichaobiao.com`): 10 electricity meters monitoring greenhouse infrastructure (main cabinet, zone power, fans, mist, irrigation), 3-phase V/A/P/PF realtime + history, **captcha login but CORS open** → browser-side dashboard works once the captcha is solved.
 
 ---
 
@@ -515,3 +516,198 @@ There's also an undocumented anti-rate-limit header used by some routes: `byPass
 | `default/js/homeAjax.js`  | Home page wiring; device-count branch (>300 → speedHome.html, else home.html) |
 | `default/js/historyAjax.js` | History query (factorIds CSV, 31-day cap) |
 | `default/js/indexAjax.js` | Header / module / alarm setup |
+
+---
+
+# Platform C — 能源管理系统 (Energy Management) — `nh2.yunjichaobiao.com`
+
+Reverse-engineered notes for a future session to build a realtime electricity-usage dashboard against the 云集抄表 ("YJCB") energy-monitoring platform. This is where the **electric usage data** lives — neither Yigrow nor 0531yun expose it; it's a separate vendor's platform.
+
+## Goal
+
+Live dashboard of 10 electricity meters monitoring greenhouse infrastructure (main cabinet, zone power, ventilation fans, mist sprayers, irrigation, etc.) with per-meter 3-phase voltage / current / active power / power factor, plus historical energy-consumption series.
+
+## Credentials
+
+- Username (UserID): `N12870`  ← project ID `12870`, prefixed `N`
+- Password: `yncn2000`
+- Internal user ID: `22283` (returned in JWT `userId` claim)
+
+## Hosts
+
+| Purpose | URL |
+|---|---|
+| Web UI (v2, jQuery + Vue2 + ElementUI hybrid) | `https://nh2.yunjichaobiao.com` |
+| REST API base | `https://nh2api.yunjichaobiao.com` |
+| Web UI (v3, modern Vue SPA — same backend) | `http://nh3.yunjichaobiao.com/#/electric/home` |
+| File / video assets | `https://nh2-bucket.oss-cn-shenzhen.aliyuncs.com/video/v2` (Aliyun OSS) |
+
+CORS: `Access-Control-Allow-Origin: *` on API responses (preflight passes). A browser dashboard on any origin can call the API directly, no proxy needed.
+
+## ⚠️ Critical constraints
+
+### 1. Captcha-protected login (same as 0531yun, but image is base64-in-JSON not raw)
+Login flow:
+1. Generate a random 12-char alphanumeric (uppercase + digits) **`keyStr`** client-side. This binds the captcha to your session.
+2. `POST https://nh2api.yunjichaobiao.com/api/Account/GetCaptcha?keyStr=<key>` (form-urlencoded body also includes `keyStr=<key>`) → returns a **double-JSON-encoded** wrapper: `{IsSuccess, Token, ErrorCode, ErrorMsg, Data}` where `Data` is a quoted base64 PNG string. Decode (strip BOM, `json.loads` twice if needed, strip outer quotes, base64-decode).
+3. Solve the captcha (4-character alphanumeric, **case-sensitive**, drawn on a 56×27 PNG).
+4. `POST /api/Account/Login` form-urlencoded with `UserID, Password, client=0, Code=<captcha>, keyStr=<same key>, Language=cn` → returns wrapper with a `Token` JWT (24–30 h validity) and a `Data` object containing user/project info.
+
+OCR works on these captchas (lowercase letters, uppercase letters, digits with mild noise). Tesseract gets ~70%; a small CNN classifier or 4–8 retry-on-failure loop reaches ~95%. For automation, plug OCR in and retry on `ErrorCode: "409"` (`验证码错误！`).
+
+There's a demo bypass in the SPA (`?type=yanshi` on `/login.html`) that uses `Code: "yjyj"` — but that's for the demo project, not your account.
+
+### 2. Token rotation
+Every successful API response includes a **fresh `Token`** in its wrapper. The SPA calls `yjCommon.updateUserToken(token)` after each response. For a long-running script, **read the response `Token` and use it on the next request** rather than holding the original — exp gets refreshed on every call. If you stop calling, the token expires on its `exp` (~24h after last use).
+
+### 3. Response shape — double encoding + UTF-8 BOM
+Every JSON response is:
+1. Prefixed with a UTF-8 BOM (`\xef\xbb\xbf`).
+2. The **outer body is itself a JSON-encoded string** — `json.loads` once to get a string, again to get the wrapper object.
+3. The wrapper `Data` field is **often** itself a JSON-encoded string — `json.loads` it again to get the actual payload.
+
+Parser cookbook (Python):
+```python
+def parse(body: bytes):
+    s = body.lstrip(b'\xef\xbb\xbf').decode('utf-8')
+    wrapper = json.loads(s)
+    if isinstance(wrapper, str):           # double-encoded outer
+        wrapper = json.loads(wrapper)
+    data = wrapper.get('Data')
+    if isinstance(data, str):
+        try: data = json.loads(data)
+        except json.JSONDecodeError: pass  # some endpoints return Data as plain string
+    return wrapper, data
+```
+
+### 4. Captcha is single-use (or close to it)
+In testing, a captcha consumed by a successful login could not be reused; for a wrong-then-right sequence the first wrong attempt did not invalidate it but a second wrong attempt did. Safest behavior: fetch a fresh captcha on every login attempt.
+
+## Auth header convention
+
+```
+Authorization: Bearer <JWT>
+Content-Type: application/json    (for endpoints that take JSON bodies — most do)
+```
+POST is the default verb for nearly everything, including endpoints that semantically look like GETs (e.g. `GetAmmeterAll`, `Login`). Empty body = `{}`. A few endpoints expect form-urlencoded (notably the Account endpoints — `Login`, `GetCaptcha`, `LoginByToken`) — when in doubt, try `application/json` first; if you get `{"Message":"请求的资源不支持 http 方法..."}`, try form-urlencoded.
+
+## API surface
+
+The bundle exposes **712 endpoints across 23 namespaces** in `js/common.js`. Counts: Monitor (154), System (101), SetMeter (92), Effect (61), Device (59), app (30), Performance (22), GatherPlan (21), OnlineExam (20), SetFocus (19), Login (15), Govern (15), Customize (15), ElecCharge (15), DataReporting (15), Main (14), Notice (14), Enter (7), AutomaticAccount (6), Customer (6), Account (5), EnergyGather (5), Download (1).
+
+### Naming conventions
+The acronyms in `Monitor/*` endpoints are Chinese pinyin abbreviations for electrical quantities:
+| Abbr | Meaning | Unit |
+|---|---|---|
+| `YGDL` | 有功电量 — active energy | kWh |
+| `WGDL` | 无功电量 — reactive energy | kVarh |
+| `YGGL` | 有功功率 — active power | kW |
+| `WGGL` | 无功功率 — reactive power | kVar |
+| `DY`   | 电压 — voltage | V |
+| `DL`   | 电流 — current | A |
+| `SZGL` | 视在功率 — apparent power | kVA |
+| `GLYS` | 功率因数 — power factor | unitless |
+| `DJDL` | 单价电量 — billed energy | kWh |
+| `DFL`  | 电费率 — tariff (peak/flat/off-peak) | — |
+| `ZDXL` | 最大需量 — max demand | kW |
+
+Each metric has 4 endpoints: `Summary<X>`, `PageFor<X>`, `Chart<X>`, `Export<X>` (overview / paginated table / time-series for plotting / CSV export).
+
+## Endpoints actually needed for a dashboard
+
+### List meters (one-shot, get inventory)
+```
+POST /api/SetMeter/GetAmmeterAll
+Authorization: Bearer <token>
+Content-Type: application/json
+{}
+```
+Returns array of meter objects. Verified for this account: **10 meters**, all 单相 / 三相 DTZY71-G or DSZY71-G models. The fields you'll actually use:
+
+| Field | Meaning |
+|---|---|
+| `ID` | numeric meter id — used in all other endpoints |
+| `Code` | meter model (`DTZY71-G` = three-phase, `DSZY71-G` = single-phase) |
+| `Name` | human-readable label (Chinese) |
+| `Address` | hardware/comms address |
+| `LineState` | 1 = online, 0 = offline (e.g. `高压喷雾（表4）` is currently offline) |
+| `Sort` | display order |
+| `AreaID` | area/zone id |
+
+Current per-account meter inventory:
+
+| ID | Name | Address | LineState |
+|---|---|---|---|
+| 166301 | 总柜（表1） | 219250037301 | 1 |
+| 166325 | 4区动力（表1） | 219250037305 | 1 |
+| 166319 | 湿帘风机（表2） | 219250037304 | 1 |
+| 166328 | 4-1区控制柜（表2） | 219250036144 | 1 |
+| 166320 | 上部风机（表3） | 219250037303 | 1 |
+| 166334 | 4-2区控制柜（表3） | 219250036145 | 1 |
+| 166311 | 高压喷雾（表4） | 219250037302 | **0 (offline)** |
+| 106625 | 55kw电机监控电表 | 219240017072 | 1 |
+| 168131 | 成苗浇水 | 219250036841 | 1 |
+| 168145 | 幼苗浇水 | 219250036842 | 1 |
+
+### Realtime per-meter snapshot (the main dashboard call)
+```
+POST /api/Device/AmmeterData_Summary
+{ "ammeterID": <meter ID> }
+```
+Returns an array of 4 metric blocks per meter, each with up to per-phase + total values. Verified shape (meter 166301, "总柜"):
+```json
+[
+  {"Keyword":"Power","Explain":"功率","ValueAP":"4.208"},
+  {"Keyword":"V","Explain":"电压","ValueA":"231","ValueB":"231.5","ValueC":"229.9"},
+  {"Keyword":"A","Explain":"电流","ValueA":"9.8","ValueB":"9.16","ValueC":"8.6"},
+  {"Keyword":"PF","Explain":"功率因数","ValueA":null,"ValueB":null,"ValueC":null}
+]
+```
+Fields: `ValueA/B/C` = per-phase (R/S/T), `ValueAP` = active power (kW), `ValueRP` = reactive power, `ValueTotal` = total, `Ratio_AP_Rated` = utilization vs rated. `AlertList` is populated when a threshold is breached.
+
+For all 10 meters together: just loop and call this endpoint per `ID` — there's no bulk realtime endpoint surfaced.
+
+### Other useful one-shot endpoints
+| Endpoint | Use |
+|---|---|
+| `POST /api/Main/GetHomePageType` (body `{}`) | Returns `"ammeter"` for this account — confirms it's an electricity-monitoring project |
+| `POST /api/Main/GetEnergyTop` body `{"dateType":"D"}` | Top-consumption meters for the day (D / M / Y) |
+| `POST /api/Main/GetAmmeterEnergyTop` | Same but ranked |
+| `POST /api/Main/GetUseEnergy` | Total energy used (the big number on the homepage) |
+| `POST /api/Main/GetRecentWarnTop` | Recent alarms |
+| `POST /api/Monitor/ElectricityAnalysis` (dosageRankChart) | Consumption analysis |
+| `POST /api/Monitor/ElectricityUsageRanking` | Usage ranking |
+| `POST /api/Monitor/ElectricityFeeAnalysis` | Cost analysis |
+
+### Historical time-series (for line charts)
+
+The chart endpoints (e.g. `Monitor/ChartYGDL`, `Monitor/ChartLoadPower`) returned HTTP 500 when probed with naïve param shapes (`ammeterIDS`, `ammeterIDList`). The frontend builds these calls in chunked JS modules I haven't pulled yet — when the next session builds the chart UI, grab the corresponding page JS (e.g. for "active energy" the chunk is loaded by a `electricity-something.js` referenced from `main.html`'s menu) and copy the exact param shape, or use the browser DevTools network tab on the live UI page once.
+
+A `Chart*` endpoint typically expects: `{ammeterIDS or AmmeterIDs: "csv,of,ids", startDate: "YYYY-MM-DD", endDate: "YYYY-MM-DD", dateType: "D"|"M"|"Y", ...}`. Don't take that as gospel — verify against a live request before committing to it.
+
+### Realtime push?
+**No WebSocket / MQTT push channel observed in the bundle.** Realtime updates are achieved by **polling `/api/Device/AmmeterData_Summary` per meter**. The frontend polls every 30–60 s. Meters themselves sample at platform-fixed cadence (no per-account `savedatainterval` knob like 0531yun).
+
+## Suggested dashboard architecture
+
+CORS is open, so a pure browser-side dashboard is viable:
+
+1. **First-run setup screen:** show the captcha image inline, ask the operator to type it once, POST `/api/Account/Login`, stash the JWT in `localStorage`. On subsequent loads, reuse the token until it 401s.
+2. **Inventory fetch:** `POST /api/SetMeter/GetAmmeterAll` → render one card per meter (filter `LineState===1` for online-only).
+3. **Realtime loop:** every 30 s, for each online meter ID, `POST /api/Device/AmmeterData_Summary` with `{ammeterID:<id>}`; update the card's voltage / current / power / power-factor readouts. On 401, prompt for a new captcha + re-login.
+4. **History:** optional. Once the chart-endpoint param shape is confirmed via DevTools, drop a 24h line chart per meter using ECharts (already on the page) or any chart lib.
+5. **Token housekeeping:** every response carries a refreshed `Token` — overwrite the stored one.
+
+For a Cloudflare-mirror style setup (per the earlier conversation), a Worker can do the polling on a cron trigger and cache to D1/KV. The captcha would need OCR or a one-time human seed; everything else is straight HTTP.
+
+## Key reference files (URL paths to grab fresh if anything looks off)
+
+| File | What it contains |
+|---|---|
+| `config.js`             | API base URL + helper URLs (`hostConfig`) |
+| `js/common.js`          | The full **`yjAPI` endpoint map** (712 names→URLs), the `yjAjax` wrapper with `Authorization: Bearer` setup |
+| `js/login.js`           | `loginGoHome`, captcha `draw()`, the `randomWord(12)` keyStr generator |
+| `js/toolkit.js`         | Utility helpers used across pages |
+| `version.js`            | Current frontend version + cache-busting logic |
+| `login.html`            | The login form (`#username`, `#password`, `#code`, `#canvas`) |
+| `main.html` / `index.html` | The post-login shell (sidebar + iframe per page) |
