@@ -243,23 +243,10 @@ export class ParticleSystem {
                     continue;
                 }
             } else {
-                // Interior air: follow the flow and equilibrate to the local temperature.
-                if (useFluid) {
-                    const fv = this.fluid.sampleVelocityAtWorld(p.position.x, p.position.y, p.position.z);
-                    this._flowVec.set(fv[0] * hw * 0.04, fv[1] * config.greenhouseHeight * 0.04, fv[2] * hl * 0.04);
-                    p.velocity.lerp(this._flowVec, 0.15);
-                } else {
-                    // Fallback flow: forward drift + light turbulence, funnelling to the
-                    // nearest fan in the rear half so particles reach an exit (no pile-up).
-                    p.velocity.z += 0.1 * config.fanSpeed * deltaTime;
-                    p.velocity.x += (Math.random() - 0.5) * 0.02 * deltaTime;
-                    p.velocity.y += (Math.random() - 0.5) * 0.02 * deltaTime;
-                    if (p.position.z > 0) {
-                        const f = nearestFan(p.position.x);
-                        p.velocity.x += (f.position.x - p.position.x) * 0.02 * config.fanSpeed * deltaTime;
-                        p.velocity.y += (f.position.y - p.position.y) * 0.01 * config.fanSpeed * deltaTime;
-                    }
-                }
+                // Interior air: follow the CFD velocity field, equilibrate to local temp.
+                const fv = this.thermal.velocityAt(p.position.x, p.position.y, p.position.z);
+                this._flowVec.set(fv[0], fv[1], fv[2]);
+                p.velocity.lerp(this._flowVec, 0.2);
 
                 const localT = this.thermal.sampleTemperature(p.position.x, p.position.y, p.position.z);
                 p.temperature = p.temperature * 0.85 + localT * 0.15;
