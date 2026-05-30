@@ -88,7 +88,7 @@ else{
   const [scls,stext]=statusInfo(inst.status);
   sheet.innerHTML=`
     <div class="doc-head">
-      <div><div class="title">${esc(FORM&&FORM.title||'业务单据')}</div><div class="sub">单据编号：${esc(inst.id)}</div></div>
+      <div><div class="title">${esc(FORM&&FORM.title||'业务单据')}</div><div class="sub">单据编号：${esc(inst.no||inst.id)}</div></div>
       <div class="meta"><div>状态：<span class="status ${scls}">${stext}</span></div>
         <div>发起人：<b>${esc(inst.initiator)}</b></div>
         <div>创建：<b>${fmt(inst.createdAt)}</b></div>${inst.resubmittedAt?`<div>重提：${fmt(inst.resubmittedAt)}</div>`:''}</div>

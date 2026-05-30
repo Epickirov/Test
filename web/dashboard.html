@@ -170,6 +170,8 @@ function bind(){
 }
 document.getElementById('refresh').onclick=()=>{FORM=read('hdy.formbuilder.v1',null);instances=read('hdy.instances.v1',[]);render();};
 window.addEventListener('focus',()=>{FORM=read('hdy.formbuilder.v1',null);instances=read('hdy.instances.v1',[]);render();});
+// live sync from other modules
+window.addEventListener('storage',e=>{ if(e.key&&e.key.indexOf('hdy.')!==0)return; FORM=read('hdy.formbuilder.v1',null);instances=read('hdy.instances.v1',[]);render(); });
 render();
 </script>
 </body>

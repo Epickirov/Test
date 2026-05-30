@@ -139,6 +139,8 @@ const NAV=[
   {id:'mobile',icon:'📱',label:'在手机中打开',href:'app.html',blank:true},
 ];
 const NAV_MAP=Object.fromEntries(NAV.filter(n=>n.id).map(n=>[n.id,n]));
+// routes reachable from the topbar but not shown in the sidebar
+NAV_MAP.fill={id:'fill',label:'发起填报',src:'app.html?tab=workbench'};
 
 const read=(k,f)=>{try{const v=JSON.parse(localStorage.getItem(k));return v==null?f:v;}catch(e){return f;}};
 const write=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
@@ -218,7 +220,7 @@ function renderOverview(){
     <div class="panels">
       <div class="pnl"><h3>最近提交 <span class="more" data-go="manage">全部 ›</span></h3>
         ${recent.length? recent.map(i=>`<div class="li" data-open="${i.id}"><div class="av">${esc((i.title||'单')[0])}</div>
-            <div class="g"><div class="t">${esc(i.title||'记录')}</div><div class="s">发起人 ${esc(i.initiator||'')}</div></div>
+            <div class="g"><div class="t">${i.no?esc(i.no)+' · ':''}${esc(i.title||'记录')}</div><div class="s">发起人 ${esc(i.initiator||'')}</div></div>
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${statusPill(i.status)}<div class="time">${rel(i.createdAt)}</div></div></div>`).join('')
           : `<div class="empty">还没有提交。${fieldCount?'去 <a data-go="todo">手机端</a> 发起填报':'先 <a data-go="form">设计一个表单</a>'}</div>`}
       </div>
@@ -240,14 +242,15 @@ document.getElementById('meSwitch').onclick=()=>{ const v=prompt('切换当前�
 
 /* ---- topbar / chrome ---- */
 document.getElementById('newForm').onclick=()=>go('form');
-document.getElementById('quickFill').onclick=()=>go('todo');
+document.getElementById('quickFill').onclick=()=>go('fill');   // 发起填报 → mobile workbench (fill)
 document.getElementById('ham').onclick=()=>{ const s=document.getElementById('shell'); if(window.innerWidth<=860) s.classList.toggle('mopen'); else s.classList.toggle('collapsed'); };
 document.getElementById('scrim').onclick=()=>document.getElementById('shell').classList.remove('mopen');
 
 /* refresh overview stats when the iframe’s data may have changed */
 window.addEventListener('focus',()=>{ updateBadges(); if(document.getElementById('overview').classList.contains('show')) renderOverview(); });
-window.addEventListener('message',e=>{ if(e.data==='hdy:dataChanged'){ updateBadges(); if(document.getElementById('overview').classList.contains('show')) renderOverview(); } });
-setInterval(updateBadges, 4000);   // keep the 待办 badge live while approving in-frame
+// live sync: any module wrote shared data → refresh badges + overview instantly
+window.addEventListener('storage',e=>{ if(e.key&&e.key.indexOf('hdy.')!==0)return; updateBadges(); if(document.getElementById('overview').classList.contains('show')) renderOverview(); });
+setInterval(updateBadges, 4000);   // safety net for the 待办 badge
 
 /* ---- boot ---- */
 renderNav(); paintMe();

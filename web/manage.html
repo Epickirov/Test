@@ -178,10 +178,12 @@ function resubmit(inst){
   advance(inst);saveAll();
 }
 
+function bumpSync(){ try{ localStorage.setItem('hdy.sync', Date.now()+'.'+Math.random()); }catch(e){} }
+
 /* ---- state ---- */
 let filter='all', q='', selected=new Set(), sort={key:'',dir:'asc'};
 let views=read('hdy.views.v1',[]);
-function saveAll(){write(LS.inst,instances);write(LS.notif,notifs);}
+function saveAll(){write(LS.inst,instances);write(LS.notif,notifs);bumpSync();}
 
 /* ---- render ---- */
 function render(){
@@ -346,7 +348,11 @@ function applyView(idx){ const v=views[idx]; if(!v)return; filter=v.filter||'all
 document.getElementById('viewSel').onchange=e=>{ if(e.target.value!=='') applyView(+e.target.value); };
 document.getElementById('saveView').onclick=()=>{ const name=prompt('视图名称（保存当前筛选/搜索/排序）','视图'+(views.length+1)); if(!name)return; views.push({name,filter,q,sort:{...sort}}); write('hdy.views.v1',views); renderViews(); document.getElementById('viewSel').value=String(views.length-1); toast('已保存视图'); };
 document.getElementById('delView').onclick=()=>{ const sel=document.getElementById('viewSel'); if(sel.value===''){toast('先选择一个视图');return;} views.splice(+sel.value,1); write('hdy.views.v1',views); renderViews(); toast('已删除视图'); };
-window.addEventListener('focus',()=>{FORM=read(LS.form,null);FLOW=read(LS.flow,null);instances=read(LS.inst,[]);notifs=read(LS.notif,[]);render();});
+function reloadFromStore(){FORM=read(LS.form,null);FLOW=read(LS.flow,null);instances=read(LS.inst,[]);notifs=read(LS.notif,[]);}
+function drawerOpen(){return document.getElementById('drawer').classList.contains('show');}
+window.addEventListener('focus',()=>{reloadFromStore();render();});
+// live sync from other modules — but don't yank the table out from under an open editor
+window.addEventListener('storage',e=>{ if(e.key&&e.key.indexOf('hdy.')!==0)return; reloadFromStore(); if(!drawerOpen())render(); });
 renderViews(); render();
 </script>
 </body>

@@ -223,12 +223,23 @@ function snapStep(kind,node){
 }
 
 /* ---------- instance lifecycle ---------- */
+/* ERP document numbering: auto-fill serial (流水号) fields with a running,
+   zero-padded number per field key, persisted so numbers never repeat. */
+function nextSerial(field){
+  const seqs=read('hdy.seq.v1',{}); const k=field.key; const n=(seqs[k]||0)+1; seqs[k]=n; write('hdy.seq.v1',seqs);
+  return (field.prefix||'') + String(n).padStart(field.digits||5,'0');
+}
+function applySerials(data){ dataFields().forEach(f=>{ if(f.type==='serial' && (data[f.key]==null||data[f.key]==='')) data[f.key]=nextSerial(f); }); }
+
 function submitForm(data){
+  applySerials(data);                                  // assign document number(s)
   const steps = compileSteps(FLOW,data);
-  const inst = { id:'I'+Date.now().toString(36), title:(FORM&&FORM.title)||'表单', data,
+  const serialF = dataFields().find(f=>f.type==='serial');
+  const docNo = serialF ? data[serialF.key] : null;    // human-facing document no.
+  const inst = { id:'I'+Date.now().toString(36), no:docNo, title:(FORM&&FORM.title)||'表单', data,
     initiator:me, createdAt:Date.now(), steps, cursor:-1, status:'running' };
   instances.unshift(inst);
-  pushNotif({type:'submit', title:'提交成功', body:inst.title, instId:inst.id});
+  pushNotif({type:'submit', title:'提交成功', body:(docNo?docNo+' · ':'')+inst.title, instId:inst.id});
   advance(inst);                   // fire CCs and arrive at first approval
   persist();
   return inst;
@@ -287,7 +298,10 @@ async function enableNotifications(){
 }
 
 /* ---------- persistence + badges ---------- */
-function persist(){ write(LS.inst,instances); write(LS.notif,notifs); updateBadges(); }
+function persist(){ write(LS.inst,instances); write(LS.notif,notifs); updateBadges(); bumpSync(); }
+/* cross-module sync bus: writing this key fires a `storage` event in every
+   other same-origin document (sibling iframes + shell), which re-read data. */
+function bumpSync(){ try{ localStorage.setItem('hdy.sync', Date.now()+'.'+Math.random()); }catch(e){} }
 function updateBadges(){
   setBadge('badge-todo', pendingTasks().length);
   setBadge('badge-msg', unread());
@@ -380,7 +394,7 @@ function instLi(i){
   const st = i.status==='approved'?'<span class="pill ok">已通过</span>': i.status==='rejected'?'<span class="pill no">已驳回</span>':'<span class="pill run">审批中</span>';
   const cur = i.status==='running' && currentStep(i) ? '当前：'+esc(currentStep(i).name) : '';
   return `<div class="li" data-inst="${i.id}"><div class="avt">${esc(i.title[0]||'单')}</div>
-    <div class="grow"><div class="t ellipsis">${esc(i.title)}</div><div class="s ellipsis">${cur||'流程结束'}</div></div>
+    <div class="grow"><div class="t ellipsis">${i.no?esc(i.no)+' · ':''}${esc(i.title)}</div><div class="s ellipsis">${cur||'流程结束'}</div></div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">${st}<div class="time">${rel(i.createdAt)}</div></div></div>`;
 }
 
@@ -588,7 +602,10 @@ function rel(ts){ const d=Date.now()-ts; if(d<60000) return '刚刚'; if(d<36000
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{ tab=t.dataset.tab; render(); });
 document.getElementById('bell').onclick=()=>{ tab='msg'; render(); };
 // re-read designer data when returning to the app
-window.addEventListener('focus', ()=>{ FORM=read(LS.form,null); FLOW=read(LS.flow,null); render(); });
+function reloadFromStore(){ FORM=read(LS.form,null); FLOW=read(LS.flow,null); instances=read(LS.inst,[]); notifs=read(LS.notif,[]); me=read(LS.user,'我'); }
+window.addEventListener('focus', ()=>{ reloadFromStore(); render(); });
+// live sync: another module changed shared data → reload & re-render
+window.addEventListener('storage', e=>{ if(e.key && e.key.indexOf('hdy.')!==0) return; reloadFromStore(); render(); });
 // deep link ?tab=
 const qp=new URLSearchParams(location.search).get('tab'); if(qp&&TAB_TITLE[qp]) tab=qp;
 // service worker
