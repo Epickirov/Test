@@ -311,7 +311,7 @@ function render(){
 
 function vWorkbench(){
   if(!FORM || !dataFields().length){
-    return `<div class="empty"><div class="big">📝</div><p>还没有表单。<br>请先在 <a href="index.html">表单设计器</a> 建好表单，<br>再到 <a href="flow.html">审批设计器</a> 配置流程。</p></div>`;
+    return `<div class="empty"><div class="big">📝</div><p>还没有表单。<br>请先在 <a href="form.html">表单设计器</a> 建好表单，<br>再到 <a href="flow.html">审批设计器</a> 配置流程。</p></div>`;
   }
   const mine = instances.filter(i=>i.initiator===me).slice(0,8);
   return `<button class="big-btn" data-act="fill"><span class="ic">＋</span><div class="grow" style="text-align:left">发起填报<div style="font-weight:400;font-size:12px;opacity:.85">${esc(FORM.title)}</div></div><span>›</span></button>
@@ -366,9 +366,10 @@ function vMe(){
       <div class="me-row"><span class="ic">📲</span><span class="grow">安装到主屏幕</span><button class="btn" style="flex:0;padding:6px 12px;font-size:13px" id="installBtn">安装</button></div>
       <div class="me-row"><span class="ic">📡</span><span class="grow">离线可用 (PWA)</span><span class="val" id="swState">检测中…</span></div>
     </div>
-    <div class="sec-title">设计工具（电脑端）</div>
+    <div class="sec-title">平台与设计工具（电脑端）</div>
     <div class="card">
-      <a class="me-row" href="index.html" style="color:inherit;text-decoration:none"><span class="ic">🧩</span><span class="grow">表单设计器</span><span>›</span></a>
+      <a class="me-row" href="index.html" style="color:inherit;text-decoration:none"><span class="ic">🏠</span><span class="grow">平台首页</span><span>›</span></a>
+      <a class="me-row" href="form.html" style="color:inherit;text-decoration:none"><span class="ic">🧩</span><span class="grow">表单设计器</span><span>›</span></a>
       <a class="me-row" href="flow.html" style="color:inherit;text-decoration:none"><span class="ic">🔀</span><span class="grow">审批流程设计器</span><span>›</span></a>
       <a class="me-row" href="manage.html" style="color:inherit;text-decoration:none"><span class="ic">📊</span><span class="grow">数据管理（提交记录）</span><span>›</span></a>
     </div>

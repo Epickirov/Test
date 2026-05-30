@@ -3,614 +3,131 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>表单设计器 · Form Builder</title>
+<meta name="theme-color" content="#1677ff" />
+<title>好队友 · 低代码平台</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icons/icon-180.png" />
 <style>
-  :root{
-    --accent:#1677ff; --accent-weak:#e8f1ff; --bg:#f5f6f8; --panel:#fff;
-    --border:#e6e8eb; --text:#1f2329; --muted:#8a8f99; --danger:#e5484d;
-    --radius:8px; --shadow:0 1px 3px rgba(0,0,0,.06);
-  }
+  :root{--accent:#1677ff;--accent2:#0958d9;--bg:#f3f5f8;--panel:#fff;--border:#e6e8eb;
+    --text:#1f2329;--muted:#8a8f99;--green:#0a8f4e;--amber:#d48806;--danger:#e5484d;--radius:14px}
   *{box-sizing:border-box}
-  html,body{height:100%;margin:0}
-  body{
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",
-      "Hiragino Sans GB","Microsoft YaHei",sans-serif;
-    color:var(--text); background:var(--bg); font-size:13px;
-  }
-  .app{display:flex; flex-direction:column; height:100vh}
-  /* top bar */
-  .topbar{
-    display:flex; align-items:center; gap:12px; height:52px; padding:0 16px;
-    background:var(--panel); border-bottom:1px solid var(--border); flex:0 0 auto;
-  }
-  .topbar .logo{font-weight:700; color:var(--accent); font-size:15px}
-  .topbar .title-input{
-    font-size:14px; font-weight:600; border:1px solid transparent; padding:6px 8px;
-    border-radius:6px; min-width:220px;
-  }
-  .topbar .title-input:hover{border-color:var(--border)}
-  .topbar .title-input:focus{border-color:var(--accent); outline:none}
-  .topbar .spacer{flex:1}
-  .btn{
-    border:1px solid var(--border); background:#fff; color:var(--text);
-    padding:6px 12px; border-radius:6px; cursor:pointer; font-size:13px;
-  }
-  .btn:hover{border-color:var(--accent); color:var(--accent)}
-  .btn.primary{background:var(--accent); border-color:var(--accent); color:#fff}
-  .btn.primary:hover{opacity:.92; color:#fff}
-  .count{color:var(--muted)}
-  /* layout */
-  .main{display:flex; flex:1; min-height:0}
-  .palette{
-    width:264px; flex:0 0 auto; background:var(--panel);
-    border-right:1px solid var(--border); overflow:auto; padding:10px 12px;
-  }
-  .cat-title{font-size:12px; color:var(--muted); margin:14px 4px 6px; font-weight:600}
-  .cat-title:first-child{margin-top:2px}
-  .field-grid{display:grid; grid-template-columns:1fr 1fr; gap:6px}
-  .pal-item{
-    display:flex; align-items:center; gap:6px; padding:7px 8px; border:1px solid var(--border);
-    border-radius:6px; cursor:pointer; background:#fff; user-select:none; position:relative;
-  }
-  .pal-item:hover{border-color:var(--accent); background:var(--accent-weak)}
-  .pal-item .ic{font-size:14px; width:16px; text-align:center}
-  .pal-item .nm{font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-  .pal-item .tag-new{
-    position:absolute; top:-6px; right:-4px; font-size:9px; color:#fff; background:var(--accent);
-    border-radius:6px; padding:0 4px; transform:scale(.85);
-  }
-  /* canvas */
-  .canvas-wrap{flex:1; overflow:auto; padding:24px; min-width:0}
-  .canvas{
-    max-width:720px; margin:0 auto; background:var(--panel); border:1px solid var(--border);
-    border-radius:var(--radius); box-shadow:var(--shadow); min-height:70vh; padding:20px 24px;
-  }
-  .form-head{font-size:16px; font-weight:700; padding-bottom:14px; border-bottom:1px solid var(--border); margin-bottom:8px}
-  .empty{
-    text-align:center; color:var(--muted); padding:80px 0; font-size:13px;
-  }
-  .empty .big{font-size:40px; opacity:.4}
-  .fld{
-    border:1px solid transparent; border-radius:6px; padding:10px; margin:4px 0; cursor:pointer; position:relative;
-  }
-  .fld:hover{border-color:var(--accent-weak); background:#fafcff}
-  .fld.sel{border-color:var(--accent); background:var(--accent-weak)}
-  .fld.dragging{opacity:.4}
-  .fld .lbl{font-size:13px; margin-bottom:6px; display:flex; align-items:center; gap:4px}
-  .fld .lbl .req{color:var(--danger)}
-  .fld .lbl .keycode{color:var(--muted); font-size:11px; font-weight:400}
-  .fld .desc{color:var(--muted); font-size:11px; margin-top:4px}
-  .fld .tools{
-    position:absolute; top:6px; right:6px; display:none; gap:4px;
-  }
-  .fld:hover .tools, .fld.sel .tools{display:flex}
-  .fld .tools button{
-    border:1px solid var(--border); background:#fff; border-radius:5px; cursor:pointer;
-    width:24px; height:24px; line-height:1; font-size:12px;
-  }
-  .fld .tools button:hover{border-color:var(--accent); color:var(--accent)}
-  .fld .tools button.del:hover{border-color:var(--danger); color:var(--danger)}
-  .fld .handle{cursor:grab}
-  /* layout-type field visuals */
-  .layout-box{border:1px dashed var(--border); border-radius:6px; padding:12px; color:var(--muted)}
-  .cols{display:grid; gap:10px}
-  .subtable-prev{width:100%; border-collapse:collapse}
-  .subtable-prev th,.subtable-prev td{border:1px solid var(--border); padding:6px 8px; font-weight:400; color:var(--muted)}
-  /* generic preview controls */
-  .ctl{width:100%; padding:7px 9px; border:1px solid var(--border); border-radius:6px; background:#fff; font-size:13px}
-  textarea.ctl{resize:vertical; min-height:60px}
-  .chips{display:flex; gap:6px; flex-wrap:wrap}
-  .chip{background:var(--accent-weak); color:var(--accent); border-radius:12px; padding:2px 10px; font-size:12px}
-  .stars{font-size:18px; color:#f5a623; letter-spacing:2px}
-  .upload-box{border:1px dashed var(--border); border-radius:6px; padding:16px; text-align:center; color:var(--muted)}
-  .switch{width:38px; height:20px; background:var(--accent); border-radius:12px; position:relative; display:inline-block}
-  .switch::after{content:""; position:absolute; right:2px; top:2px; width:16px; height:16px; background:#fff; border-radius:50%}
-  .progress{height:8px; background:var(--border); border-radius:5px; overflow:hidden}
-  .progress > i{display:block; height:100%; width:45%; background:var(--accent)}
-  .row-inline{display:flex; gap:8px; align-items:center}
-  /* right props */
-  .props{
-    width:300px; flex:0 0 auto; background:var(--panel); border-left:1px solid var(--border);
-    overflow:auto; padding:14px 16px;
-  }
-  .props h3{font-size:13px; margin:0 0 12px}
-  .prop{margin-bottom:12px}
-  .prop label{display:block; font-size:12px; color:var(--muted); margin-bottom:5px}
-  .prop input[type=text],.prop input[type=number],.prop textarea,.prop select{
-    width:100%; padding:6px 8px; border:1px solid var(--border); border-radius:6px; font-size:13px;
-  }
-  .prop textarea{resize:vertical; min-height:64px}
-  .prop .inline{display:flex; align-items:center; gap:8px}
-  .prop .hint{font-size:11px; color:var(--muted); margin-top:4px}
-  .seg{display:flex; border:1px solid var(--border); border-radius:6px; overflow:hidden}
-  .seg button{flex:1; border:0; background:#fff; padding:7px; cursor:pointer; font-size:12px}
-  .seg button.on{background:var(--accent); color:#fff}
-  .rule-btn{width:100%; text-align:left; margin-bottom:8px; color:var(--muted)}
-  .rule-btn .soon{float:right; font-size:10px; background:var(--bg); padding:1px 6px; border-radius:8px}
-  /* modal */
-  .modal-bg{position:fixed; inset:0; background:rgba(0,0,0,.4); display:none; align-items:center; justify-content:center; z-index:50}
-  .modal-bg.show{display:flex}
-  .modal{background:#fff; border-radius:10px; width:680px; max-width:92vw; max-height:84vh; display:flex; flex-direction:column; overflow:hidden}
-  .modal header{padding:14px 18px; border-bottom:1px solid var(--border); font-weight:600; display:flex; align-items:center}
-  .modal header .spacer{flex:1}
-  .modal .body{padding:16px 18px; overflow:auto}
-  .modal textarea{width:100%; height:340px; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; border:1px solid var(--border); border-radius:6px; padding:10px}
-  .modal footer{padding:12px 18px; border-top:1px solid var(--border); display:flex; gap:8px; justify-content:flex-end}
-  /* preview mode hides editor chrome */
-  body.preview .palette,body.preview .props,body.preview .fld .tools{display:none}
-  body.preview .fld{cursor:default}
-  body.preview .fld:hover{border-color:transparent; background:transparent}
-  body.preview .canvas{max-width:560px}
-  /* label layout: left */
-  .canvas.label-left .fld .lbl{float:left; width:110px; padding-top:8px; margin:0}
-  .canvas.label-left .fld .ctl-wrap{margin-left:120px}
-  .canvas.label-left .fld{overflow:hidden}
+  html,body{margin:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);background:var(--bg);min-height:100vh}
+  a{color:inherit;text-decoration:none}
+  .hero{background:linear-gradient(135deg,#2a86ff,#0a52d0);color:#fff;padding:28px 20px 70px}
+  .hero .inner{max-width:1040px;margin:0 auto}
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand .logo{width:42px;height:42px;border-radius:11px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:22px}
+  .brand h1{font-size:20px;margin:0;font-weight:700}
+  .brand p{margin:2px 0 0;opacity:.85;font-size:13px}
+  .tagline{margin:18px 2px 0;font-size:14px;opacity:.92;max-width:620px;line-height:1.6}
+  .container{max-width:1040px;margin:-52px auto 40px;padding:0 20px}
+  /* stats */
+  .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:26px}
+  .stat{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(20,40,80,.05)}
+  .stat .n{font-size:24px;font-weight:700;line-height:1}
+  .stat .l{color:var(--muted);font-size:12px;margin-top:6px}
+  .stat .n.amber{color:var(--amber)} .stat .n.green{color:var(--green)} .stat .n.danger{color:var(--danger)}
+  /* steps */
+  .steps{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:26px}
+  .step{flex:1;min-width:150px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;gap:10px;align-items:center}
+  .step .num{width:24px;height:24px;border-radius:50%;background:var(--accent-weak,#e8f1ff);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex:0 0 auto}
+  .step .tt{font-weight:600;font-size:13px} .step .ds{color:var(--muted);font-size:12px}
+  .sec-title{font-size:13px;color:var(--muted);font-weight:600;margin:6px 4px 12px}
+  /* tiles */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin-bottom:28px}
+  .tile{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:0 2px 8px rgba(20,40,80,.05);transition:transform .12s,box-shadow .12s,border-color .12s;position:relative;overflow:hidden}
+  .tile:hover{transform:translateY(-3px);box-shadow:0 8px 22px rgba(20,40,80,.12);border-color:var(--accent)}
+  .tile .ic{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;color:#fff;margin-bottom:12px}
+  .tile h3{margin:0 0 6px;font-size:16px}
+  .tile p{margin:0;color:var(--muted);font-size:13px;line-height:1.55;flex:1}
+  .tile .go{margin-top:14px;display:inline-flex;align-items:center;gap:6px;color:var(--accent);font-size:13px;font-weight:600}
+  .tile .chip{position:absolute;top:14px;right:14px;font-size:11px;background:var(--bg);color:var(--muted);border-radius:10px;padding:2px 9px}
+  .tile .chip.live{background:#eaf7ee;color:var(--green)}
+  .ic.blue{background:linear-gradient(135deg,#2a86ff,#0958d9)} .ic.purple{background:linear-gradient(135deg,#7c5cff,#5b34d6)}
+  .ic.green{background:linear-gradient(135deg,#22b06b,#0a8f4e)} .ic.amber{background:linear-gradient(135deg,#ffae3a,#e58a00)}
+  .foot{text-align:center;color:var(--muted);font-size:12px;padding:10px 0 30px}
+  @media (max-width:680px){ .stats{grid-template-columns:repeat(3,1fr)} .hero{padding-bottom:60px} }
 </style>
 </head>
 <body>
-<div class="app">
-  <div class="topbar">
-    <span class="logo">表单设计器</span>
-    <input class="title-input" id="formTitle" value="数据表157" />
-    <span class="count" id="count">0 个字段</span>
-    <span class="spacer"></span>
-    <a class="btn" href="flow.html" style="text-decoration:none;display:inline-block">审批流程 →</a>
-    <a class="btn" href="manage.html" style="text-decoration:none;display:inline-block">数据管理 →</a>
-    <a class="btn" href="app.html" style="text-decoration:none;display:inline-block">手机端 →</a>
-    <button class="btn" id="btnPreview">预览</button>
-    <button class="btn" id="btnImport">导入 JSON</button>
-    <button class="btn" id="btnExport">导出 Schema</button>
-    <button class="btn" id="btnClear">清空</button>
-  </div>
+  <div class="hero"><div class="inner">
+    <div class="brand">
+      <div class="logo">✓</div>
+      <div><h1>好队友 · 低代码平台</h1><p>Low-code Platform · 表单 · 审批 · 移动协作</p></div>
+    </div>
+    <p class="tagline">一个工作台，搭建你自己的表单与审批应用：电脑端设计，手机端使用，数据统一管理。从下面任意模块进入。</p>
+  </div></div>
 
-  <div class="main">
-    <aside class="palette" id="palette"></aside>
+  <div class="container">
+    <div class="stats" id="stats"></div>
 
-    <div class="canvas-wrap" id="canvasWrap">
-      <div class="canvas" id="canvas"></div>
+    <div class="steps">
+      <div class="step"><span class="num">1</span><div><div class="tt">设计表单</div><div class="ds">拖拽字段搭建</div></div></div>
+      <div class="step"><span class="num">2</span><div><div class="tt">配置审批</div><div class="ds">审批人与条件分支</div></div></div>
+      <div class="step"><span class="num">3</span><div><div class="tt">手机填报/审批</div><div class="ds">待办与消息</div></div></div>
+      <div class="step"><span class="num">4</span><div><div class="tt">数据管理</div><div class="ds">查看 · 编辑 · 导出</div></div></div>
     </div>
 
-    <aside class="props" id="props"></aside>
-  </div>
-</div>
+    <div class="sec-title">搭建（电脑端）</div>
+    <div class="grid">
+      <a class="tile" href="form.html">
+        <div class="ic blue">🧩</div><h3>表单设计器</h3>
+        <p>拖拽搭建表单，50+ 字段类型、分组与布局，导出 JSON Schema。</p>
+        <span class="go" id="formChip">进入设计 →</span>
+      </a>
+      <a class="tile" href="flow.html">
+        <div class="ic purple">🔀</div><h3>审批流程设计器</h3>
+        <p>设置审批人（或签/会签/依次）、布尔条件分支，逐环节配置字段权限与简报。</p>
+        <span class="go" id="flowChip">配置流程 →</span>
+      </a>
+    </div>
 
-<!-- JSON modal -->
-<div class="modal-bg" id="modalBg">
-  <div class="modal">
-    <header><span id="modalTitle">表单 Schema</span><span class="spacer"></span><button class="btn" id="modalClose">关闭</button></header>
-    <div class="body"><textarea id="jsonArea" spellcheck="false"></textarea></div>
-    <footer>
-      <button class="btn" id="jsonCopy">复制</button>
-      <button class="btn" id="jsonDownload">下载 .json</button>
-      <button class="btn primary" id="jsonApply" style="display:none">应用导入</button>
-    </footer>
+    <div class="sec-title">使用与运营</div>
+    <div class="grid">
+      <a class="tile" href="app.html">
+        <div class="ic green">📱</div><h3>移动工作台<span class="chip live">可安装 PWA</span></h3>
+        <p>手机端填报、待办审批（简报卡片 + 批量通过）、消息通知中心。</p>
+        <span class="go">打开手机端 →</span>
+      </a>
+      <a class="tile" href="manage.html">
+        <div class="ic amber">📊</div><h3>数据管理</h3>
+        <p>所有提交记录的表格视图：查看、编辑、删除、重新提交审批，CSV/JSON 导出。</p>
+        <span class="go" id="mgChip">管理数据 →</span>
+      </a>
+    </div>
+
+    <div class="foot">好队友 · 低代码平台原型 · 数据保存在本地浏览器</div>
   </div>
-</div>
 
 <script>
-/* =========================================================================
-   表单设计器 / Low-code Form Builder — zero-dependency prototype
-   Core idea: a FIELD TYPE REGISTRY + a JSON form schema. The registry is the
-   reusable, framework-agnostic heart of the low-code platform; this file is
-   just one (vanilla) renderer of it. Port the registry to React/Vue later.
-   ========================================================================= */
+  const read=(k,f)=>{try{const v=JSON.parse(localStorage.getItem(k));return v==null?f:v;}catch(e){return f;}};
+  const FORM=read('hdy.formbuilder.v1',null), FLOW=read('hdy.flow.v1',null);
+  const instances=read('hdy.instances.v1',[]), notifs=read('hdy.notif.v1',[]);
+  const LAYOUT=['subtable','columns','group','divider','static_text','tabs','collapse','steps'];
 
-/* ---- 1. Categories ---- */
-const CATEGORIES = [
-  {key:'basic',      name:'基础'},
-  {key:'choice',     name:'选择'},
-  {key:'number',     name:'数字'},
-  {key:'datetime',   name:'日期时间'},
-  {key:'media',      name:'媒体'},
-  {key:'people',     name:'人员与组织'},
-  {key:'location',   name:'位置'},
-  {key:'relational', name:'关联其它表数据'},
-  {key:'advanced',   name:'高级'},
-  {key:'layout',     name:'布局字段'},
-];
+  const fieldCount = FORM&&Array.isArray(FORM.fields)?FORM.fields.filter(f=>!LAYOUT.includes(f.type)).length:0;
+  function flowCount(){ let n=0; (function walk(ch){ if(!ch)return; ch.forEach(x=>{ n++; if(x.type==='condition') x.branches.forEach(b=>walk(b.children)); }); })(FLOW?FLOW.root:[]); return n; }
+  const running = instances.filter(i=>i.status==='running').length;
+  const pending = instances.filter(i=>{ const s=i.steps&&i.steps[i.cursor]; return i.status==='running'&&s&&s.kind==='approval'&&s.status==='pending'; }).length;
+  const unread = notifs.filter(n=>!n.read).length;
 
-/* ---- 2. Field type registry ----
-   `extra:true` = beyond the reference palette (the "more than available" set). */
-const FIELDS = [
-  // basic
-  {type:'single_text', name:'单行文本', icon:'📝', cat:'basic'},
-  {type:'multi_text',  name:'多行文本', icon:'📄', cat:'basic'},
-  {type:'rich_text',   name:'富文本',   icon:'📰', cat:'basic', extra:true},
-  {type:'email',       name:'邮箱',     icon:'📧', cat:'basic', extra:true},
-  {type:'phone',       name:'手机号',   icon:'📱', cat:'basic'},
-  {type:'id_card',     name:'身份证号', icon:'🪪', cat:'basic'},
-  {type:'url',         name:'超链接',   icon:'🔗', cat:'basic'},
-  {type:'password',    name:'密码',     icon:'🔒', cat:'basic', extra:true},
-  {type:'barcode',     name:'CODE/条码',icon:'🔖', cat:'basic'},
-  // choice
-  {type:'radio',         name:'单选/按钮组', icon:'🔘', cat:'choice'},
-  {type:'checkbox',      name:'多选框',     icon:'☑️', cat:'choice', extra:true},
-  {type:'dropdown',      name:'下拉单选',   icon:'🔽', cat:'choice'},
-  {type:'multi_dropdown',name:'下拉多选',   icon:'🔽', cat:'choice', extra:true},
-  {type:'cascader',      name:'多级选项',   icon:'🧬', cat:'choice'},
-  {type:'tags',          name:'标签',       icon:'🏷️', cat:'choice', extra:true},
-  {type:'switch',        name:'开关',       icon:'🔀', cat:'choice', extra:true},
-  {type:'rating',        name:'评分',       icon:'⭐', cat:'choice', extra:true},
-  {type:'slider',        name:'滑块',       icon:'🎚️', cat:'choice', extra:true},
-  // number
-  {type:'number',  name:'数字',     icon:'🔢', cat:'number'},
-  {type:'amount',  name:'金额',     icon:'💰', cat:'number'},
-  {type:'percent', name:'百分比',   icon:'💯', cat:'number'},
-  {type:'formula', name:'计算公式', icon:'🧮', cat:'number'},
-  {type:'serial',  name:'流水号',   icon:'#️⃣', cat:'number'},
-  // datetime
-  {type:'date',       name:'日期',     icon:'📅', cat:'datetime', extra:true},
-  {type:'datetime',   name:'日期时间', icon:'🕐', cat:'datetime'},
-  {type:'time',       name:'时间',     icon:'⏰', cat:'datetime', extra:true},
-  {type:'date_range', name:'日期区间', icon:'📆', cat:'datetime', extra:true},
-  // media
-  {type:'image',      name:'图片',     icon:'🖼️', cat:'media'},
-  {type:'attachment', name:'附件',     icon:'📎', cat:'media'},
-  {type:'video',      name:'视频',     icon:'🎬', cat:'media', extra:true},
-  {type:'audio',      name:'录音',     icon:'🎙️', cat:'media'},
-  {type:'signature',  name:'手写签名', icon:'✍️', cat:'media'},
-  {type:'qrcode',     name:'二维码',   icon:'🔳', cat:'media', extra:true},
-  // people
-  {type:'member',     name:'工作成员', icon:'👤', cat:'people'},
-  {type:'department', name:'部门',     icon:'🏢', cat:'people'},
-  {type:'role',       name:'角色',     icon:'🛡️', cat:'people', extra:true},
-  // location
-  {type:'address', name:'地址', icon:'📍', cat:'location'},
-  {type:'geo',     name:'定位', icon:'🌐', cat:'location'},
-  {type:'map',     name:'地图选点', icon:'🗺️', cat:'location', extra:true},
-  // relational
-  {type:'relation',      name:'关联表',   icon:'🔗', cat:'relational'},
-  {type:'lookup',        name:'关联查询', icon:'🔍', cat:'relational'},
-  {type:'auto_relation', name:'自动关联', icon:'♻️', cat:'relational'},
-  {type:'rollup',        name:'关联统计', icon:'📊', cat:'relational'},
-  // advanced
-  {type:'json',     name:'JSON',      icon:'🧾', cat:'advanced', extra:true},
-  {type:'hidden',   name:'隐藏字段',  icon:'👻', cat:'advanced', extra:true},
-  {type:'color',    name:'颜色',      icon:'🎨', cat:'advanced', extra:true},
-  {type:'country',  name:'国家/地区', icon:'🌍', cat:'advanced', extra:true},
-  {type:'progress', name:'进度',      icon:'📈', cat:'advanced', extra:true},
-  // layout
-  {type:'subtable',    name:'子表',     icon:'▦', cat:'layout'},
-  {type:'columns',     name:'一行多列', icon:'▥', cat:'layout'},
-  {type:'group',       name:'分组',     icon:'🗂️', cat:'layout'},
-  {type:'divider',     name:'分隔线',   icon:'➖', cat:'layout', extra:true},
-  {type:'static_text', name:'说明文字', icon:'💬', cat:'layout', extra:true},
-  {type:'tabs',        name:'标签页',   icon:'🗃️', cat:'layout', extra:true},
-  {type:'collapse',    name:'折叠面板', icon:'🔻', cat:'layout', extra:true},
-  {type:'steps',       name:'步骤条',   icon:'🪜', cat:'layout', extra:true},
-];
-const FIELD_MAP = Object.fromEntries(FIELDS.map(f => [f.type, f]));
+  const stats=[
+    ['',fieldCount,'表单字段'],
+    ['',flowCount(),'审批节点'],
+    ['',instances.length,'提交记录'],
+    ['amber',pending,'待办审批'],
+    ['danger',unread,'未读消息'],
+  ];
+  document.getElementById('stats').innerHTML=stats.map(([c,n,l])=>`<div class="stat"><div class="n ${c}">${n}</div><div class="l">${l}</div></div>`).join('');
 
-/* type groups used by the renderer / property editor */
-const TEXT_INPUT = ['single_text','phone','id_card','email','url','password','barcode'];
-const CHOICE     = ['radio','checkbox','dropdown','multi_dropdown','cascader','tags'];
-const NUMERIC    = ['number','amount','percent'];
-const LAYOUT     = ['subtable','columns','group','divider','static_text','tabs','collapse','steps'];
-const NO_VALUE   = ['divider','static_text']; // pure layout, no data key
+  // gentle hints when a module is empty
+  if(!fieldCount) document.getElementById('formChip').textContent='从这里开始 →';
+  if(FORM && !flowCount()) document.getElementById('flowChip').textContent='去配置审批 →';
+  if(instances.length) document.getElementById('mgChip').textContent=`管理 ${instances.length} 条记录 →`;
 
-/* ---- 3. State ---- */
-let state = load() || { title:'数据表157', settings:{labelLayout:'top'}, fields:[] };
-let selectedId = null;
-let seq = state.fields.reduce((m,f)=>Math.max(m, f._n||0), 0);
-
-function uid(){ return 'f' + Math.random().toString(36).slice(2,8); }
-
-function defaultField(type){
-  const def = FIELD_MAP[type];
-  seq += 1;
-  const f = { id:uid(), _n:seq, type, label:def.name, key:type+'_'+seq, required:false, desc:'' };
-  if (CHOICE.includes(type)) f.options = ['选项一','选项二','选项三'];
-  if (NUMERIC.includes(type)) { f.precision = type==='amount'?2:0; f.min=null; f.max=null; }
-  if (TEXT_INPUT.includes(type) || type==='multi_text') f.placeholder = '请输入';
-  if (type==='rating')  f.max = 5;
-  if (type==='slider')  { f.min=0; f.max=100; f.step=1; }
-  if (type==='serial')  { f.prefix='NO-'; f.digits=5; }
-  if (type==='columns') f.cols = 2;
-  if (type==='static_text') f.text = '在这里填写说明文字…';
-  if (type==='relation' || type==='lookup' || type==='auto_relation' || type==='rollup') f.sourceForm='';
-  return f;
-}
-
-/* ---- 4. Persistence ---- */
-function save(){ localStorage.setItem('hdy.formbuilder.v1', JSON.stringify(state)); }
-function load(){ try{ return JSON.parse(localStorage.getItem('hdy.formbuilder.v1')); }catch(e){ return null; } }
-
-/* ---- 5. Palette ---- */
-function renderPalette(){
-  const el = document.getElementById('palette');
-  el.innerHTML = CATEGORIES.map(cat => {
-    const items = FIELDS.filter(f => f.cat===cat.key);
-    if (!items.length) return '';
-    return `<div class="cat-title">${cat.name}</div>
-      <div class="field-grid">` +
-      items.map(f => `<div class="pal-item" data-type="${f.type}" title="${f.name}">
-          <span class="ic">${f.icon}</span><span class="nm">${f.name}</span>
-          ${f.extra ? '<span class="tag-new">NEW</span>' : ''}
-        </div>`).join('') +
-      `</div>`;
-  }).join('');
-  el.querySelectorAll('.pal-item').forEach(it => {
-    it.onclick = () => addField(it.dataset.type);
-  });
-}
-
-function addField(type, atIndex){
-  const f = defaultField(type);
-  if (atIndex==null) state.fields.push(f); else state.fields.splice(atIndex,0,f);
-  selectedId = f.id;
-  commit();
-}
-
-/* ---- 6. Canvas ---- */
-function renderCanvas(){
-  const c = document.getElementById('canvas');
-  c.className = 'canvas label-' + state.settings.labelLayout;
-  document.getElementById('formTitle').value = state.title;
-  document.getElementById('count').textContent = state.fields.filter(f=>!NO_VALUE.includes(f.type)).length + ' 个字段';
-
-  let html = `<div class="form-head">${escapeHtml(state.title)}</div>`;
-  if (!state.fields.length){
-    html += `<div class="empty"><div class="big">🗂️</div><div>点击左侧字段类型添加到表单</div></div>`;
-  } else {
-    html += state.fields.map(renderFieldCard).join('');
-  }
-  c.innerHTML = html;
-
-  c.querySelectorAll('.fld').forEach(card => {
-    const id = card.dataset.id;
-    card.onclick = (e) => { if (e.target.closest('.tools')) return; select(id); };
-    card.querySelector('.del').onclick = (e) => { e.stopPropagation(); removeField(id); };
-    card.querySelector('.up').onclick   = (e) => { e.stopPropagation(); moveField(id,-1); };
-    card.querySelector('.down').onclick = (e) => { e.stopPropagation(); moveField(id, 1); };
-    // drag to reorder
-    card.addEventListener('dragstart', e => { card.classList.add('dragging'); e.dataTransfer.setData('text/plain', id); });
-    card.addEventListener('dragend',   () => card.classList.remove('dragging'));
-    card.addEventListener('dragover',  e => e.preventDefault());
-    card.addEventListener('drop', e => {
-      e.preventDefault();
-      const fromId = e.dataTransfer.getData('text/plain');
-      reorderTo(fromId, id);
-    });
-  });
-}
-
-function renderFieldCard(f){
-  const sel = f.id===selectedId ? ' sel' : '';
-  const isLayout = LAYOUT.includes(f.type);
-  const reqMark = f.required ? '<span class="req">*</span>' : '';
-  const lbl = NO_VALUE.includes(f.type) ? '' :
-    `<div class="lbl">${reqMark}${escapeHtml(f.label)} <span class="keycode">${f.key}</span></div>`;
-  const desc = f.desc ? `<div class="desc">${escapeHtml(f.desc)}</div>` : '';
-  return `<div class="fld${sel}" data-id="${f.id}" draggable="true">
-      <div class="tools">
-        <button class="handle up" title="上移">↑</button>
-        <button class="handle down" title="下移">↓</button>
-        <button class="del" title="删除">✕</button>
-      </div>
-      ${lbl}
-      <div class="ctl-wrap">${renderControl(f)}</div>
-      ${desc}
-    </div>`;
-}
-
-/* preview control per field type */
-function renderControl(f){
-  const ph = escapeHtml(f.placeholder||'');
-  if (TEXT_INPUT.includes(f.type)) {
-    const t = f.type==='password'?'password':'text';
-    return `<input class="ctl" type="${t}" placeholder="${ph||hintFor(f.type)}" disabled>`;
-  }
-  switch(f.type){
-    case 'multi_text': return `<textarea class="ctl" placeholder="${ph}" disabled></textarea>`;
-    case 'rich_text':  return `<div class="layout-box">B I U · 富文本编辑区</div>`;
-    case 'radio':
-    case 'checkbox':
-      return `<div class="row-inline" style="flex-wrap:wrap;gap:14px">` +
-        (f.options||[]).map(o=>`<label class="row-inline"><span style="font-size:14px">${f.type==='radio'?'◯':'▢'}</span> ${escapeHtml(o)}</label>`).join('') + `</div>`;
-    case 'dropdown':
-    case 'multi_dropdown':
-      return `<select class="ctl" disabled>${(f.options||[]).map(o=>`<option>${escapeHtml(o)}</option>`).join('')}</select>`;
-    case 'cascader': return `<select class="ctl" disabled><option>一级 / 二级 / 三级</option></select>`;
-    case 'tags':     return `<div class="chips">${(f.options||['标签A','标签B']).map(o=>`<span class="chip">${escapeHtml(o)}</span>`).join('')}</div>`;
-    case 'switch':   return `<span class="switch"></span>`;
-    case 'rating':   return `<div class="stars">${'★'.repeat(f.max||5)}</div>`;
-    case 'slider':   return `<input class="ctl" type="range" min="${f.min}" max="${f.max}" step="${f.step}" disabled>`;
-    case 'number':   return `<input class="ctl" type="number" placeholder="0" disabled>`;
-    case 'amount':   return `<div class="row-inline">￥<input class="ctl" type="number" placeholder="0.00" disabled></div>`;
-    case 'percent':  return `<div class="row-inline"><input class="ctl" type="number" placeholder="0" disabled> %</div>`;
-    case 'formula':  return `<input class="ctl" value="= 自动计算" disabled>`;
-    case 'serial':   return `<input class="ctl" value="${escapeAttr((f.prefix||'') + '1'.padStart(f.digits||5,'0'))}" disabled>`;
-    case 'date':       return `<input class="ctl" type="date" disabled>`;
-    case 'datetime':   return `<input class="ctl" type="datetime-local" disabled>`;
-    case 'time':       return `<input class="ctl" type="time" disabled>`;
-    case 'date_range': return `<div class="row-inline"><input class="ctl" type="date" disabled> 至 <input class="ctl" type="date" disabled></div>`;
-    case 'image':      return `<div class="upload-box">＋ 上传图片</div>`;
-    case 'attachment': return `<div class="upload-box">📎 上传附件</div>`;
-    case 'video':      return `<div class="upload-box">🎬 上传视频</div>`;
-    case 'audio':      return `<div class="upload-box">🎙️ 点击录音</div>`;
-    case 'signature':  return `<div class="upload-box">✍️ 手写签名区</div>`;
-    case 'qrcode':     return `<div class="upload-box">🔳 扫码 / 二维码</div>`;
-    case 'member':     return `<input class="ctl" placeholder="选择工作成员" disabled>`;
-    case 'department': return `<input class="ctl" placeholder="选择部门" disabled>`;
-    case 'role':       return `<input class="ctl" placeholder="选择角色" disabled>`;
-    case 'address':    return `<input class="ctl" placeholder="省 / 市 / 区 + 详细地址" disabled>`;
-    case 'geo':        return `<div class="upload-box">📍 获取当前定位</div>`;
-    case 'map':        return `<div class="layout-box" style="height:90px">🗺️ 地图选点</div>`;
-    case 'relation':   return `<input class="ctl" placeholder="选择关联记录 ${f.sourceForm?('· '+escapeHtml(f.sourceForm)):''}" disabled>`;
-    case 'lookup':     return `<input class="ctl" value="（来自关联表的字段）" disabled>`;
-    case 'auto_relation': return `<input class="ctl" value="自动匹配关联记录" disabled>`;
-    case 'rollup':     return `<input class="ctl" value="Σ 0" disabled>`;
-    case 'json':       return `<textarea class="ctl" disabled>{ }</textarea>`;
-    case 'hidden':     return `<div class="desc">（隐藏字段 · 不在表单显示）</div>`;
-    case 'color':      return `<input type="color" value="#1677ff" disabled>`;
-    case 'country':    return `<select class="ctl" disabled><option>中国 China</option></select>`;
-    case 'progress':   return `<div class="progress"><i></i></div>`;
-    // layout
-    case 'group':   return `<div class="layout-box">▢ 分组容器（可放置子字段）</div>`;
-    case 'columns': return `<div class="cols" style="grid-template-columns:repeat(${f.cols||2},1fr)">` +
-                      Array.from({length:f.cols||2}).map(()=>`<div class="layout-box">列</div>`).join('') + `</div>`;
-    case 'subtable':return `<table class="subtable-prev"><tr><th>子字段1</th><th>子字段2</th><th>＋</th></tr><tr><td>—</td><td>—</td><td></td></tr></table>`;
-    case 'divider': return `<hr style="border:none;border-top:1px solid var(--border)">`;
-    case 'static_text': return `<div class="desc" style="font-size:13px">${escapeHtml(f.text||'')}</div>`;
-    case 'tabs':    return `<div class="layout-box">🗃️ 标签页一 | 标签页二</div>`;
-    case 'collapse':return `<div class="layout-box">🔻 折叠面板</div>`;
-    case 'steps':   return `<div class="layout-box">① —— ② —— ③</div>`;
-    default: return `<input class="ctl" disabled>`;
-  }
-}
-function hintFor(t){ return ({phone:'手机号',id_card:'身份证号',email:'name@example.com',url:'https://',barcode:'扫码或输入'})[t]||'请输入'; }
-
-/* ---- 7. Properties panel ---- */
-function renderProps(){
-  const el = document.getElementById('props');
-  const f = state.fields.find(x=>x.id===selectedId);
-  if (!f){ el.innerHTML = formSettingsHtml(); bindFormSettings(el); return; }
-
-  const isLayout = LAYOUT.includes(f.type);
-  const noValue  = NO_VALUE.includes(f.type);
-  let rows = '';
-  if (f.type==='static_text'){
-    rows += propText('text','说明文字', f.text, true);
-  } else {
-    rows += propText('label','字段标题', f.label);
-    if (!noValue){
-      rows += propText('key','字段标识 (key)', f.key);
-      rows += `<div class="prop"><label class="inline"><input type="checkbox" data-prop="required" ${f.required?'checked':''}> 必填</label></div>`;
-      rows += propText('desc','描述/提示', f.desc);
-    }
-    if (TEXT_INPUT.includes(f.type) || f.type==='multi_text') rows += propText('placeholder','占位提示', f.placeholder);
-    if (CHOICE.includes(f.type)) rows += propTextarea('options','选项（每行一个）', (f.options||[]).join('\n'));
-    if (NUMERIC.includes(f.type)){
-      rows += propNum('precision','小数位', f.precision);
-      rows += `<div class="prop inline">${miniNum('min','最小',f.min)}${miniNum('max','最大',f.max)}</div>`;
-    }
-    if (f.type==='rating') rows += propNum('max','最高分', f.max);
-    if (f.type==='slider'){ rows += `<div class="prop inline">${miniNum('min','最小',f.min)}${miniNum('max','最大',f.max)}${miniNum('step','步长',f.step)}</div>`; }
-    if (f.type==='serial'){ rows += propText('prefix','前缀', f.prefix); rows += propNum('digits','位数', f.digits); }
-    if (f.type==='columns') rows += propNum('cols','列数', f.cols);
-    if (['relation','lookup','auto_relation','rollup'].includes(f.type)) rows += propText('sourceForm','关联表单', f.sourceForm);
-  }
-
-  el.innerHTML = `<h3>${FIELD_MAP[f.type].icon} ${FIELD_MAP[f.type].name} 属性</h3>${rows}`;
-  el.querySelectorAll('[data-prop]').forEach(inp => {
-    inp.oninput = inp.onchange = () => {
-      const k = inp.dataset.prop;
-      let v = inp.type==='checkbox' ? inp.checked : inp.value;
-      if (k==='options') v = inp.value.split('\n').map(s=>s.trim()).filter(Boolean);
-      else if (['precision','min','max','step','cols','digits'].includes(k)) v = inp.value===''?null:Number(inp.value);
-      f[k] = v;
-      save(); renderCanvas();
-    };
-  });
-}
-function propText(k,label,val,wide){ return `<div class="prop"><label>${label}</label><input type="${'text'}" data-prop="${k}" value="${escapeAttr(val||'')}"></div>`; }
-function propTextarea(k,label,val){ return `<div class="prop"><label>${label}</label><textarea data-prop="${k}">${escapeHtml(val||'')}</textarea></div>`; }
-function propNum(k,label,val){ return `<div class="prop"><label>${label}</label><input type="number" data-prop="${k}" value="${val==null?'':val}"></div>`; }
-function miniNum(k,label,val){ return `<div style="flex:1"><label style="font-size:11px;color:var(--muted)">${label}</label><input type="number" data-prop="${k}" value="${val==null?'':val}" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px"></div>`; }
-
-function formSettingsHtml(){
-  return `<h3>表单属性</h3>
-    <div class="prop"><label>标题</label><input type="text" id="fsTitle" value="${escapeAttr(state.title)}"></div>
-    <div class="prop"><label>表单标题与值的布局</label>
-      <div class="seg">
-        <button data-layout="top"  class="${state.settings.labelLayout==='top'?'on':''}">上下结构</button>
-        <button data-layout="left" class="${state.settings.labelLayout==='left'?'on':''}">左右结构</button>
-      </div>
-    </div>
-    <div class="prop"><label>规则</label>
-      <button class="btn rule-btn">设置字段显隐规则 <span class="soon">即将支持</span></button>
-      <button class="btn rule-btn">设置数据校验规则 <span class="soon">即将支持</span></button>
-      <button class="btn rule-btn">设置字段联合唯一约束 <span class="soon">即将支持</span></button>
-    </div>
-    <div class="prop hint">提示：点击中间画布里的字段可编辑其属性。</div>`;
-}
-function bindFormSettings(el){
-  const t = el.querySelector('#fsTitle');
-  if (t) t.oninput = () => { state.title = t.value; save(); renderCanvas(); };
-  el.querySelectorAll('[data-layout]').forEach(b => b.onclick = () => { state.settings.labelLayout = b.dataset.layout; commit(); });
-}
-
-/* ---- 8. Mutations ---- */
-function select(id){ selectedId = id; renderCanvas(); renderProps(); }
-function removeField(id){ state.fields = state.fields.filter(f=>f.id!==id); if(selectedId===id) selectedId=null; commit(); }
-function moveField(id,dir){
-  const i = state.fields.findIndex(f=>f.id===id), j=i+dir;
-  if (i<0||j<0||j>=state.fields.length) return;
-  [state.fields[i],state.fields[j]]=[state.fields[j],state.fields[i]];
-  commit();
-}
-function reorderTo(fromId,toId){
-  if (fromId===toId) return;
-  const from = state.fields.findIndex(f=>f.id===fromId);
-  const to   = state.fields.findIndex(f=>f.id===toId);
-  if (from<0||to<0) return;
-  const [m] = state.fields.splice(from,1);
-  state.fields.splice(to,0,m);
-  commit();
-}
-function commit(){ save(); renderCanvas(); renderProps(); }
-
-/* ---- 9. Schema import/export ---- */
-function schema(){
-  return {
-    title: state.title,
-    settings: state.settings,
-    fields: state.fields.map(({_n, ...f}) => f),   // strip internal seq
-  };
-}
-function openModal(title, text, isImport){
-  document.getElementById('modalTitle').textContent = title;
-  document.getElementById('jsonArea').value = text;
-  document.getElementById('jsonApply').style.display = isImport ? '' : 'none';
-  document.getElementById('jsonArea').readOnly = !isImport;
-  document.getElementById('modalBg').classList.add('show');
-}
-function closeModal(){ document.getElementById('modalBg').classList.remove('show'); }
-
-/* ---- 10. Wire up top bar + modal ---- */
-function init(){
-  renderPalette(); renderCanvas(); renderProps();
-
-  document.getElementById('formTitle').oninput = (e) => { state.title = e.target.value; save(); renderCanvas(); if(!selectedId) renderProps(); };
-  document.getElementById('btnExport').onclick = () => openModal('表单 Schema (JSON)', JSON.stringify(schema(), null, 2), false);
-  document.getElementById('btnImport').onclick = () => openModal('粘贴要导入的 Schema JSON', '', true);
-  document.getElementById('btnClear').onclick  = () => { if(confirm('清空所有字段？')){ state={title:state.title,settings:state.settings,fields:[]}; selectedId=null; commit(); } };
-  document.getElementById('btnPreview').onclick = () => {
-    document.body.classList.toggle('preview');
-    const on = document.body.classList.contains('preview');
-    document.getElementById('btnPreview').textContent = on ? '退出预览' : '预览';
-    if (on){ selectedId=null; renderCanvas(); }
-  };
-  // canvas drop target for reordering to the end / empty area
-  const canvas = document.getElementById('canvas');
-  canvas.addEventListener('dragover', e => e.preventDefault());
-  canvas.addEventListener('drop', e => {
-    if (e.target===canvas){ const id=e.dataTransfer.getData('text/plain'); if(id) reorderTo(id, state.fields[state.fields.length-1]?.id||id); }
-  });
-
-  document.getElementById('modalClose').onclick = closeModal;
-  document.getElementById('jsonCopy').onclick = () => { navigator.clipboard?.writeText(document.getElementById('jsonArea').value); };
-  document.getElementById('jsonDownload').onclick = () => {
-    const blob = new Blob([document.getElementById('jsonArea').value], {type:'application/json'});
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = (state.title||'form') + '.schema.json'; a.click();
-  };
-  document.getElementById('jsonApply').onclick = () => {
-    try {
-      const obj = JSON.parse(document.getElementById('jsonArea').value);
-      state.title = obj.title || state.title;
-      state.settings = obj.settings || state.settings;
-      state.fields = (obj.fields||[]).map(f => ({ _n:++seq, ...f, id: f.id||uid() }));
-      selectedId = null; closeModal(); commit();
-    } catch(err){ alert('JSON 解析失败：' + err.message); }
-  };
-}
-
-/* ---- utils ---- */
-function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-function escapeAttr(s){ return escapeHtml(s).replace(/'/g,'&#39;'); }
-
-init();
+  // register the PWA service worker so the platform is installable / offline
+  if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{})); }
 </script>
 </body>
 </html>

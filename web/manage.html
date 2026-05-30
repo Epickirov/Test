@@ -77,7 +77,8 @@
   <div class="topbar">
     <span class="logo">数据管理</span>
     <span class="muted" id="formName"></span>
-    <a class="btn" href="index.html">表单设计器</a>
+    <a class="btn" href="index.html">🏠 首页</a>
+    <a class="btn" href="form.html">表单设计器</a>
     <a class="btn" href="flow.html">审批流程</a>
     <a class="btn" href="app.html">手机端</a>
     <span class="spacer"></span>
@@ -177,7 +178,7 @@ function render(){
   renderStats();
   const list=filtered();
   const wrap=document.getElementById('wrap');
-  if(!FORM||!dataFields().length){ wrap.innerHTML=`<div class="empty"><div class="big">🧩</div><p>还没有表单。请先到 <a href="index.html">表单设计器</a> 创建。</p></div>`; document.getElementById('foot').textContent=''; return; }
+  if(!FORM||!dataFields().length){ wrap.innerHTML=`<div class="empty"><div class="big">🧩</div><p>还没有表单。请先到 <a href="form.html">表单设计器</a> 创建。</p></div>`; document.getElementById('foot').textContent=''; return; }
   if(!instances.length){ wrap.innerHTML=`<div class="empty"><div class="big">📭</div><p>还没有提交记录。到 <a href="app.html">手机端</a> 发起填报后，这里就会出现。</p></div>`; document.getElementById('foot').textContent=''; return; }
   const cols=colFields();
   wrap.innerHTML=`<table class="grid"><thead><tr>
