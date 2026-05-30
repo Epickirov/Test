@@ -4,140 +4,256 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="theme-color" content="#1677ff" />
-<title>好队友 · 低代码平台</title>
+<title>好队友 · 工作台</title>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icons/icon-180.png" />
 <style>
   :root{--accent:#1677ff;--accent2:#0958d9;--bg:#f3f5f8;--panel:#fff;--border:#e6e8eb;
-    --text:#1f2329;--muted:#8a8f99;--green:#0a8f4e;--amber:#d48806;--danger:#e5484d;--radius:14px}
+    --text:#1f2329;--muted:#8a8f99;--green:#0a8f4e;--amber:#d48806;--danger:#e5484d;
+    --side:#1f2733;--side-hi:#2b3543;--side-mut:#9aa7b8}
   *{box-sizing:border-box}
-  html,body{margin:0}
-  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);background:var(--bg);min-height:100vh}
-  a{color:inherit;text-decoration:none}
-  .hero{background:linear-gradient(135deg,#2a86ff,#0a52d0);color:#fff;padding:28px 20px 70px}
-  .hero .inner{max-width:1040px;margin:0 auto}
-  .brand{display:flex;align-items:center;gap:12px}
-  .brand .logo{width:42px;height:42px;border-radius:11px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:22px}
-  .brand h1{font-size:20px;margin:0;font-weight:700}
-  .brand p{margin:2px 0 0;opacity:.85;font-size:13px}
-  .tagline{margin:18px 2px 0;font-size:14px;opacity:.92;max-width:620px;line-height:1.6}
-  .container{max-width:1040px;margin:-52px auto 40px;padding:0 20px}
-  /* stats */
-  .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:26px}
-  .stat{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(20,40,80,.05)}
-  .stat .n{font-size:24px;font-weight:700;line-height:1}
-  .stat .l{color:var(--muted);font-size:12px;margin-top:6px}
-  .stat .n.amber{color:var(--amber)} .stat .n.green{color:var(--green)} .stat .n.danger{color:var(--danger)}
-  /* steps */
-  .steps{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:26px}
-  .step{flex:1;min-width:150px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;gap:10px;align-items:center}
-  .step .num{width:24px;height:24px;border-radius:50%;background:var(--accent-weak,#e8f1ff);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex:0 0 auto}
-  .step .tt{font-weight:600;font-size:13px} .step .ds{color:var(--muted);font-size:12px}
-  .sec-title{font-size:13px;color:var(--muted);font-weight:600;margin:6px 4px 12px}
-  /* tiles */
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin-bottom:28px}
-  .tile{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:0 2px 8px rgba(20,40,80,.05);transition:transform .12s,box-shadow .12s,border-color .12s;position:relative;overflow:hidden}
-  .tile:hover{transform:translateY(-3px);box-shadow:0 8px 22px rgba(20,40,80,.12);border-color:var(--accent)}
-  .tile .ic{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;color:#fff;margin-bottom:12px}
-  .tile h3{margin:0 0 6px;font-size:16px}
-  .tile p{margin:0;color:var(--muted);font-size:13px;line-height:1.55;flex:1}
-  .tile .go{margin-top:14px;display:inline-flex;align-items:center;gap:6px;color:var(--accent);font-size:13px;font-weight:600}
-  .tile .chip{position:absolute;top:14px;right:14px;font-size:11px;background:var(--bg);color:var(--muted);border-radius:10px;padding:2px 9px}
-  .tile .chip.live{background:#eaf7ee;color:var(--green)}
-  .ic.blue{background:linear-gradient(135deg,#2a86ff,#0958d9)} .ic.purple{background:linear-gradient(135deg,#7c5cff,#5b34d6)}
-  .ic.green{background:linear-gradient(135deg,#22b06b,#0a8f4e)} .ic.amber{background:linear-gradient(135deg,#ffae3a,#e58a00)}
-  .foot{text-align:center;color:var(--muted);font-size:12px;padding:10px 0 30px}
-  @media (max-width:680px){ .stats{grid-template-columns:repeat(3,1fr)} .hero{padding-bottom:60px} }
+  html,body{margin:0;height:100%}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);background:var(--bg);font-size:13px}
+  a{text-decoration:none;color:inherit}
+  .shell{display:flex;height:100vh;height:100dvh;overflow:hidden}
+  /* sidebar */
+  .side{width:220px;flex:0 0 auto;background:var(--side);color:#fff;display:flex;flex-direction:column;transition:width .18s}
+  .side .brand{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--side-hi)}
+  .side .brand .logo{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#2a86ff,#0958d9);display:flex;align-items:center;justify-content:center;font-size:17px;flex:0 0 auto}
+  .side .brand b{font-size:15px;white-space:nowrap}
+  .side .brand .sub{font-size:11px;color:var(--side-mut);white-space:nowrap}
+  .nav{flex:1;overflow:auto;padding:8px}
+  .nav .sep{color:var(--side-mut);font-size:11px;padding:14px 12px 6px;white-space:nowrap}
+  .nav button{width:100%;display:flex;align-items:center;gap:11px;background:none;border:0;color:#dfe6ee;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:13.5px;text-align:left}
+  .nav button .ic{font-size:17px;width:20px;text-align:center;flex:0 0 auto}
+  .nav button .lbl{white-space:nowrap;overflow:hidden;flex:1}
+  .nav button .badge{background:var(--danger);color:#fff;border-radius:10px;font-size:10px;padding:0 6px;min-width:16px;text-align:center;display:none}
+  .nav button .badge.show{display:inline-block}
+  .nav button:hover{background:var(--side-hi);color:#fff}
+  .nav button.on{background:var(--accent);color:#fff}
+  .side .foot{padding:10px;border-top:1px solid var(--side-hi)}
+  .side .foot .me{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:8px}
+  .side .foot .me .av{width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;flex:0 0 auto}
+  .side .foot .me .nm{font-size:13px;white-space:nowrap;overflow:hidden}
+  .side .foot .me .sw{margin-left:auto;color:var(--side-mut);cursor:pointer;font-size:11px;white-space:nowrap}
+  /* collapsed */
+  .shell.collapsed .side{width:62px}
+  .shell.collapsed .side .brand b,.shell.collapsed .side .brand .sub,
+  .shell.collapsed .nav .lbl,.shell.collapsed .nav .sep,.shell.collapsed .foot .nm,.shell.collapsed .foot .sw{display:none}
+  .shell.collapsed .nav button{justify-content:center}
+  /* main */
+  .main{flex:1;display:flex;flex-direction:column;min-width:0}
+  .topbar{height:50px;flex:0 0 auto;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 14px}
+  .topbar .ham{border:0;background:none;font-size:18px;cursor:pointer;color:var(--muted);padding:4px 6px;border-radius:6px}
+  .topbar .ham:hover{background:var(--bg)}
+  .topbar .crumb{font-weight:600;font-size:15px}
+  .topbar .spacer{flex:1}
+  .topbar .tbtn{border:1px solid var(--border);background:#fff;color:var(--text);padding:6px 12px;border-radius:7px;cursor:pointer;font-size:13px}
+  .topbar .tbtn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .content{flex:1;min-height:0;position:relative;background:var(--bg)}
+  iframe#frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff;display:none}
+  /* overview */
+  .ov{position:absolute;inset:0;overflow:auto;padding:22px;display:none}
+  .ov.show{display:block}
+  iframe#frame.show{display:block}
+  .ov .head{display:flex;align-items:flex-end;gap:12px;margin-bottom:18px}
+  .ov .head h1{margin:0;font-size:20px}
+  .ov .head .date{color:var(--muted);font-size:13px;margin-bottom:2px}
+  .ov-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;max-width:900px}
+  .act{display:flex;gap:13px;align-items:center;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px 18px;cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .12s;position:relative}
+  .act:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(20,40,80,.10);border-color:var(--accent)}
+  .act .ic{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:23px;color:#fff;flex:0 0 auto}
+  .act .ic.blue{background:linear-gradient(135deg,#2a86ff,#0958d9)}.act .ic.green{background:linear-gradient(135deg,#22b06b,#0a8f4e)}.act .ic.purple{background:linear-gradient(135deg,#7c5cff,#5b34d6)}
+  .act h3{margin:0 0 3px;font-size:16px}.act p{margin:0;color:var(--muted);font-size:12.5px}
+  .act .nbadge{position:absolute;top:12px;right:14px;background:var(--danger);color:#fff;border-radius:11px;font-size:11px;font-weight:700;padding:1px 8px;display:none}
+  .act .nbadge.show{display:block}
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;max-width:900px}
+  .kpi{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:13px 14px}
+  .kpi .n{font-size:23px;font-weight:700;line-height:1}.kpi .l{color:var(--muted);font-size:12px;margin-top:5px}
+  .kpi .n.amber{color:var(--amber)}.kpi .n.green{color:var(--green)}.kpi .n.danger{color:var(--danger)}
+  .panels{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:900px}
+  .pnl{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+  .pnl h3{margin:0 0 10px;font-size:14px;display:flex;align-items:center}
+  .pnl h3 .more{margin-left:auto;font-size:12px;color:var(--accent);cursor:pointer;font-weight:400}
+  .li{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid var(--border);cursor:pointer}
+  .li:last-child{border-bottom:0}
+  .li .av{width:30px;height:30px;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;flex:0 0 auto}
+  .li .g{flex:1;min-width:0}.li .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .li .s{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .li .time{color:var(--muted);font-size:11px;white-space:nowrap}
+  .pill{display:inline-block;border-radius:10px;padding:1px 8px;font-size:11px;font-weight:600}
+  .pill.run{background:#fff7e6;color:var(--amber)}.pill.ok{background:#eaf7ee;color:var(--green)}.pill.no{background:#fde8e8;color:var(--danger)}
+  .pnl .empty{color:var(--muted);text-align:center;padding:26px 8px;font-size:13px}
+  .pnl .empty a{color:var(--accent)}
+  /* mobile */
+  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:18;display:none}
+  @media(max-width:860px){
+    .ov-actions{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(3,1fr)}.panels{grid-template-columns:1fr}
+    .side{position:fixed;z-index:20;height:100%;transform:translateX(-100%)}
+    .shell.mopen .side{transform:translateX(0)}
+    .shell.mopen .scrim{display:block}
+    .shell.collapsed .side{width:220px}
+  }
 </style>
 </head>
 <body>
-  <div class="hero"><div class="inner">
-    <div class="brand">
-      <div class="logo">✓</div>
-      <div><h1>好队友 · 低代码平台</h1><p>Low-code Platform · 表单 · 审批 · 移动协作</p></div>
+<div class="shell" id="shell">
+  <aside class="side">
+    <div class="brand"><div class="logo">✓</div><div><b>好队友</b><div class="sub">低代码工作台</div></div></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="foot"><div class="me"><div class="av" id="meAv">我</div><div class="nm" id="meNm">我</div><span class="sw" id="meSwitch">切换</span></div></div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+  <div class="main">
+    <div class="topbar">
+      <button class="ham" id="ham">☰</button>
+      <span class="crumb" id="crumb">概览</span>
+      <span class="spacer"></span>
+      <button class="tbtn" id="newForm">＋ 新建表单</button>
+      <button class="tbtn primary" id="quickFill">发起填报</button>
     </div>
-    <p class="tagline">一个工作台，搭建你自己的表单与审批应用：电脑端设计，手机端使用，数据统一管理。从下面任意模块进入。</p>
-  </div></div>
-
-  <div class="container">
-    <div class="stats" id="stats"></div>
-
-    <div class="steps">
-      <div class="step"><span class="num">1</span><div><div class="tt">设计表单</div><div class="ds">拖拽字段搭建</div></div></div>
-      <div class="step"><span class="num">2</span><div><div class="tt">配置审批</div><div class="ds">审批人与条件分支</div></div></div>
-      <div class="step"><span class="num">3</span><div><div class="tt">手机填报/审批</div><div class="ds">待办与消息</div></div></div>
-      <div class="step"><span class="num">4</span><div><div class="tt">数据管理</div><div class="ds">查看 · 编辑 · 导出</div></div></div>
+    <div class="content">
+      <div class="ov" id="overview"></div>
+      <iframe id="frame" title="模块"></iframe>
     </div>
-
-    <div class="sec-title">搭建（电脑端）</div>
-    <div class="grid">
-      <a class="tile" href="form.html">
-        <div class="ic blue">🧩</div><h3>表单设计器</h3>
-        <p>拖拽搭建表单，50+ 字段类型、分组与布局，导出 JSON Schema。</p>
-        <span class="go" id="formChip">进入设计 →</span>
-      </a>
-      <a class="tile" href="flow.html">
-        <div class="ic purple">🔀</div><h3>审批流程设计器</h3>
-        <p>设置审批人（或签/会签/依次）、布尔条件分支，逐环节配置字段权限与简报。</p>
-        <span class="go" id="flowChip">配置流程 →</span>
-      </a>
-    </div>
-
-    <div class="sec-title">使用与运营</div>
-    <div class="grid">
-      <a class="tile" href="app.html">
-        <div class="ic green">📱</div><h3>移动工作台<span class="chip live">可安装 PWA</span></h3>
-        <p>手机端填报、待办审批（简报卡片 + 批量通过）、消息通知中心。</p>
-        <span class="go">打开手机端 →</span>
-      </a>
-      <a class="tile" href="manage.html">
-        <div class="ic amber">📊</div><h3>数据管理</h3>
-        <p>所有提交记录的表格视图：查看、编辑、删除、重新提交审批，CSV/JSON 导出。</p>
-        <span class="go" id="mgChip">管理数据 →</span>
-      </a>
-      <a class="tile" href="dashboard.html">
-        <div class="ic purple">📈</div><h3>数据看板</h3>
-        <p>KPI、状态分布、提交趋势与自定义分组统计；单据一键打印 / 导出 PDF。</p>
-        <span class="go">查看报表 →</span>
-      </a>
-      <a class="tile" href="views.html">
-        <div class="ic green">▦</div><h3>多视图（看板/日历）</h3>
-        <p>同一份数据，多种视角：拖拽式看板（按状态或任意选项字段分组）+ 月历视图，借鉴 Monday / Salesforce / Airtable。</p>
-        <span class="go">切换视图 →</span>
-      </a>
-    </div>
-
-    <div class="foot">好队友 · 低代码平台原型 · 数据保存在本地浏览器</div>
   </div>
+</div>
 
 <script>
-  const read=(k,f)=>{try{const v=JSON.parse(localStorage.getItem(k));return v==null?f:v;}catch(e){return f;}};
+/* =========================================================================
+   好队友 · application shell.
+   The root is now a persistent frame: sidebar + topbar, with the content area
+   swapping modules in place (via iframe) and a native "overview" landing for
+   view / approve / design. All modules share localStorage on this origin.
+   ========================================================================= */
+const NAV=[
+  {id:'overview',icon:'🏠',label:'概览',native:true},
+  {id:'todo',icon:'✅',label:'待办审批',src:'app.html?tab=todo',badge:'pending'},
+  {id:'manage',icon:'📊',label:'数据管理',src:'manage.html'},
+  {id:'views',icon:'▦',label:'看板 / 多视图',src:'views.html'},
+  {id:'dashboard',icon:'📈',label:'数据看板',src:'dashboard.html'},
+  {sep:'设计'},
+  {id:'form',icon:'🧩',label:'表单设计器',src:'form.html'},
+  {id:'flow',icon:'🔀',label:'审批流程',src:'flow.html'},
+  {sep:''},
+  {id:'mobile',icon:'📱',label:'在手机中打开',href:'app.html',blank:true},
+];
+const NAV_MAP=Object.fromEntries(NAV.filter(n=>n.id).map(n=>[n.id,n]));
+
+const read=(k,f)=>{try{const v=JSON.parse(localStorage.getItem(k));return v==null?f:v;}catch(e){return f;}};
+const write=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
+const LAYOUT=['subtable','columns','group','divider','static_text','tabs','collapse','steps'];
+function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function currentStep(i){return i.steps&&i.steps[i.cursor];}
+function isPending(i){const s=currentStep(i);return i.status==='running'&&s&&s.kind==='approval'&&s.status==='pending';}
+function rel(ts){const d=Date.now()-ts;if(d<60000)return '刚刚';if(d<3600000)return Math.floor(d/60000)+'分钟前';if(d<86400000)return Math.floor(d/3600000)+'小时前';const x=new Date(ts);return (x.getMonth()+1)+'-'+('0'+x.getDate()).slice(-2);}
+function statusPill(s){return s==='approved'?'<span class="pill ok">已通过</span>':s==='rejected'?'<span class="pill no">已驳回</span>':'<span class="pill run">审批中</span>';}
+
+/* ---- sidebar ---- */
+function renderNav(){
+  const el=document.getElementById('nav');
+  el.innerHTML=NAV.map(n=> n.sep!==undefined
+    ? `<div class="sep">${esc(n.sep||'')}</div>`
+    : `<button data-id="${n.id}"><span class="ic">${n.icon}</span><span class="lbl">${esc(n.label)}</span>${n.badge?`<span class="badge" data-badge="${n.badge}"></span>`:''}</button>`
+  ).join('');
+  el.querySelectorAll('button[data-id]').forEach(b=>b.onclick=()=>{
+    const n=NAV_MAP[b.dataset.id];
+    if(n.href){ window.open(n.href, n.blank?'_blank':'_self'); return; }
+    go(b.dataset.id);
+    if(window.innerWidth<=860) document.getElementById('shell').classList.remove('mopen');
+  });
+}
+function setActive(id){ document.querySelectorAll('.nav button[data-id]').forEach(b=>b.classList.toggle('on',b.dataset.id===id)); }
+function updateBadges(){
+  const instances=read('hdy.instances.v1',[]); const notifs=read('hdy.notif.v1',[]);
+  const pending=instances.filter(isPending).length; const unread=notifs.filter(n=>!n.read).length;
+  document.querySelectorAll('[data-badge="pending"]').forEach(b=>{b.textContent=pending;b.classList.toggle('show',pending>0);});
+}
+
+/* ---- router ---- */
+function go(id){ if(location.hash.slice(1)!==id) location.hash=id; else route(); }
+function route(){
+  const id=(location.hash.slice(1)||'overview');
+  const n=NAV_MAP[id]||NAV_MAP.overview;
+  if(n.href){ setActive('overview'); location.hash='overview'; return; }
+  document.getElementById('crumb').textContent=n.label;
+  setActive(n.id);
+  const ov=document.getElementById('overview'), fr=document.getElementById('frame');
+  if(n.native){ fr.classList.remove('show'); ov.classList.add('show'); renderOverview(); }
+  else{ ov.classList.remove('show'); const src=n.src; if(fr.getAttribute('src')!==src) fr.setAttribute('src',src); fr.classList.add('show'); }
+}
+window.addEventListener('hashchange',route);
+
+/* ---- overview ---- */
+function renderOverview(){
+  updateBadges();
   const FORM=read('hdy.formbuilder.v1',null), FLOW=read('hdy.flow.v1',null);
   const instances=read('hdy.instances.v1',[]), notifs=read('hdy.notif.v1',[]);
-  const LAYOUT=['subtable','columns','group','divider','static_text','tabs','collapse','steps'];
+  const me=read('hdy.user.v1','我');
+  const fieldCount=FORM&&Array.isArray(FORM.fields)?FORM.fields.filter(f=>!LAYOUT.includes(f.type)).length:0;
+  let nodeCount=0;(function walk(ch){if(!ch)return;ch.forEach(x=>{nodeCount++;if(x.type==='condition')x.branches.forEach(b=>walk(b.children));});})(FLOW?FLOW.root:[]);
+  const running=instances.filter(i=>i.status==='running').length;
+  const approved=instances.filter(i=>i.status==='approved').length;
+  const pending=instances.filter(isPending).length;
+  const unread=notifs.filter(n=>!n.read).length;
+  const recent=instances.slice(0,6);
+  const pend=instances.filter(isPending).slice(0,6);
+  const now=new Date(); const dstr=`${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`;
 
-  const fieldCount = FORM&&Array.isArray(FORM.fields)?FORM.fields.filter(f=>!LAYOUT.includes(f.type)).length:0;
-  function flowCount(){ let n=0; (function walk(ch){ if(!ch)return; ch.forEach(x=>{ n++; if(x.type==='condition') x.branches.forEach(b=>walk(b.children)); }); })(FLOW?FLOW.root:[]); return n; }
-  const running = instances.filter(i=>i.status==='running').length;
-  const pending = instances.filter(i=>{ const s=i.steps&&i.steps[i.cursor]; return i.status==='running'&&s&&s.kind==='approval'&&s.status==='pending'; }).length;
-  const unread = notifs.filter(n=>!n.read).length;
+  const ov=document.getElementById('overview');
+  ov.innerHTML=`
+    <div class="head"><div><div class="date">${dstr}</div><h1>你好，${esc(me)} 👋</h1></div></div>
+    <div class="ov-actions">
+      <div class="act" data-go="manage"><div class="ic blue">📋</div><div><h3>查看数据</h3><p>浏览所有提交记录、看板与报表</p></div></div>
+      <div class="act" data-go="todo"><div class="ic green">✅</div><div><h3>去审批</h3><p>处理待你审批的单据</p></div><span class="nbadge ${pending?'show':''}">${pending} 待办</span></div>
+      <div class="act" data-go="form"><div class="ic purple">🧩</div><div><h3>设计新表单</h3><p>拖拽搭建表单与审批流程</p></div></div>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><div class="n">${instances.length}</div><div class="l">提交记录</div></div>
+      <div class="kpi"><div class="n amber">${running}</div><div class="l">审批中</div></div>
+      <div class="kpi"><div class="n green">${approved}</div><div class="l">已通过</div></div>
+      <div class="kpi"><div class="n danger">${pending}</div><div class="l">待我审批</div></div>
+      <div class="kpi"><div class="n">${fieldCount}/${nodeCount}</div><div class="l">字段 / 审批节点</div></div>
+    </div>
+    <div class="panels">
+      <div class="pnl"><h3>最近提交 <span class="more" data-go="manage">全部 ›</span></h3>
+        ${recent.length? recent.map(i=>`<div class="li" data-open="${i.id}"><div class="av">${esc((i.title||'单')[0])}</div>
+            <div class="g"><div class="t">${esc(i.title||'记录')}</div><div class="s">发起人 ${esc(i.initiator||'')}</div></div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${statusPill(i.status)}<div class="time">${rel(i.createdAt)}</div></div></div>`).join('')
+          : `<div class="empty">还没有提交。${fieldCount?'去 <a data-go="todo">手机端</a> 发起填报':'先 <a data-go="form">设计一个表单</a>'}</div>`}
+      </div>
+      <div class="pnl"><h3>待我审批 <span class="more" data-go="todo">去处理 ›</span></h3>
+        ${pend.length? pend.map(i=>{const s=currentStep(i);return `<div class="li" data-go2="todo"><div class="av" style="background:var(--amber)">审</div>
+            <div class="g"><div class="t">${esc(i.title||'记录')}</div><div class="s">环节「${esc(s?s.name:'')}」· 发起人 ${esc(i.initiator||'')}</div></div>
+            <div class="time">${rel(i.createdAt)}</div></div>`}).join('')
+          : `<div class="empty">🎉 暂无待办审批</div>`}
+      </div>
+    </div>`;
+  ov.querySelectorAll('[data-go]').forEach(e=>e.onclick=()=>go(e.dataset.go));
+  ov.querySelectorAll('[data-go2]').forEach(e=>e.onclick=()=>go(e.dataset.go2));
+  ov.querySelectorAll('[data-open]').forEach(e=>e.onclick=()=>{ go('manage'); });
+}
 
-  const stats=[
-    ['',fieldCount,'表单字段'],
-    ['',flowCount(),'审批节点'],
-    ['',instances.length,'提交记录'],
-    ['amber',pending,'待办审批'],
-    ['danger',unread,'未读消息'],
-  ];
-  document.getElementById('stats').innerHTML=stats.map(([c,n,l])=>`<div class="stat"><div class="n ${c}">${n}</div><div class="l">${l}</div></div>`).join('');
+/* ---- identity ---- */
+function paintMe(){ const me=read('hdy.user.v1','我'); document.getElementById('meNm').textContent=me; document.getElementById('meAv').textContent=(me[0]||'我'); }
+document.getElementById('meSwitch').onclick=()=>{ const v=prompt('切换当前身份（用于发起/审批）', read('hdy.user.v1','我')); if(v&&v.trim()){ write('hdy.user.v1',v.trim()); paintMe(); if(!location.hash||location.hash==='#overview') renderOverview(); } };
 
-  // gentle hints when a module is empty
-  if(!fieldCount) document.getElementById('formChip').textContent='从这里开始 →';
-  if(FORM && !flowCount()) document.getElementById('flowChip').textContent='去配置审批 →';
-  if(instances.length) document.getElementById('mgChip').textContent=`管理 ${instances.length} 条记录 →`;
+/* ---- topbar / chrome ---- */
+document.getElementById('newForm').onclick=()=>go('form');
+document.getElementById('quickFill').onclick=()=>go('todo');
+document.getElementById('ham').onclick=()=>{ const s=document.getElementById('shell'); if(window.innerWidth<=860) s.classList.toggle('mopen'); else s.classList.toggle('collapsed'); };
+document.getElementById('scrim').onclick=()=>document.getElementById('shell').classList.remove('mopen');
 
-  // register the PWA service worker so the platform is installable / offline
-  if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{})); }
+/* refresh overview stats when the iframe’s data may have changed */
+window.addEventListener('focus',()=>{ updateBadges(); if(document.getElementById('overview').classList.contains('show')) renderOverview(); });
+window.addEventListener('message',e=>{ if(e.data==='hdy:dataChanged'){ updateBadges(); if(document.getElementById('overview').classList.contains('show')) renderOverview(); } });
+setInterval(updateBadges, 4000);   // keep the 待办 badge live while approving in-frame
+
+/* ---- boot ---- */
+renderNav(); paintMe();
+if(!location.hash){ location.hash='overview'; }   // triggers hashchange -> route()
+route();                                          // also render immediately for first paint
+if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{})); }
 </script>
 </body>
 </html>
