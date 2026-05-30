@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>数据看板 · Dashboard</title>
+<style>
+  :root{--accent:#1677ff;--accent-weak:#e8f1ff;--bg:#f5f6f8;--panel:#fff;--border:#e6e8eb;
+    --text:#1f2329;--muted:#8a8f99;--green:#0a8f4e;--amber:#d48806;--danger:#e5484d;--purple:#6b46c1}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);background:var(--bg);font-size:13px}
+  .app{display:flex;flex-direction:column;min-height:100vh}
+  .topbar{display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--border)}
+  .topbar .logo{font-weight:700;color:var(--accent);font-size:15px}
+  .topbar .spacer{flex:1}
+  .btn{border:1px solid var(--border);background:#fff;color:var(--text);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-block}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  .wrap{padding:16px;max-width:1100px;margin:0 auto;width:100%}
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+  .kpi{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px}
+  .kpi .n{font-size:26px;font-weight:700;line-height:1}
+  .kpi .l{color:var(--muted);font-size:12px;margin-top:6px}
+  .kpi .n.amber{color:var(--amber)}.kpi .n.green{color:var(--green)}.kpi .n.danger{color:var(--danger)}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px}
+  .card h3{margin:0 0 14px;font-size:14px;display:flex;align-items:center;gap:8px}
+  .card h3 .ctl{margin-left:auto;display:flex;gap:6px}
+  .card h3 select{border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:12px}
+  /* donut */
+  .donut-wrap{display:flex;align-items:center;gap:20px}
+  .donut{width:140px;height:140px;border-radius:50%;flex:0 0 auto;position:relative}
+  .donut .hole{position:absolute;inset:24px;background:var(--panel);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .donut .hole b{font-size:24px}.donut .hole span{color:var(--muted);font-size:11px}
+  .legend{display:flex;flex-direction:column;gap:8px}
+  .legend .item{display:flex;align-items:center;gap:8px;font-size:13px}
+  .legend .dot{width:11px;height:11px;border-radius:3px}
+  /* bars */
+  .bars{display:flex;flex-direction:column;gap:9px}
+  .bar-row{display:flex;align-items:center;gap:10px}
+  .bar-label{width:120px;text-align:right;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 0 auto}
+  .bar-track{flex:1;background:var(--bg);border-radius:6px;height:18px;overflow:hidden}
+  .bar-fill{height:100%;background:linear-gradient(90deg,#2a86ff,#0958d9);border-radius:6px;min-width:2px}
+  .bar-val{width:64px;text-align:right;font-weight:600;font-size:12px;flex:0 0 auto}
+  /* trend (vertical) */
+  .trend{display:flex;align-items:flex-end;gap:6px;height:160px;padding-top:8px}
+  .trend .col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;min-width:0}
+  .trend .tb{width:70%;max-width:28px;background:linear-gradient(180deg,#4a97ff,#1677ff);border-radius:4px 4px 0 0;min-height:2px}
+  .trend .tl{font-size:10px;color:var(--muted);white-space:nowrap}
+  .trend .tv{font-size:10px;color:var(--muted)}
+  .empty{text-align:center;color:var(--muted);padding:70px 16px}.empty .big{font-size:46px;opacity:.4}.empty a{color:var(--accent)}
+  @media(max-width:780px){.kpis{grid-template-columns:repeat(3,1fr)}.row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <span class="logo">数据看板</span>
+    <a class="btn" href="index.html">🏠 首页</a>
+    <a class="btn" href="manage.html">数据管理</a>
+    <a class="btn" href="form.html">表单设计器</a>
+    <span class="spacer"></span>
+    <button class="btn" id="refresh">刷新</button>
+  </div>
+  <div class="wrap" id="wrap"></div>
+</div>
+<script>
+const read=(k,f)=>{try{const v=JSON.parse(localStorage.getItem(k));return v==null?f:v;}catch(e){return f;}};
+let FORM=read('hdy.formbuilder.v1',null), instances=read('hdy.instances.v1',[]);
+const LAYOUT=['subtable','columns','group','divider','static_text','tabs','collapse','steps'];
+const NUMERIC=['number','amount','percent','slider','rating'];
+const dataFields=()=>FORM&&Array.isArray(FORM.fields)?FORM.fields.filter(f=>!LAYOUT.includes(f.type)):[];
+const numFields=()=>dataFields().filter(f=>NUMERIC.includes(f.type));
+function num(x){const n=parseFloat(x);return isNaN(n)?0:n;}
+function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function fmtN(n){ return (Math.round(n*100)/100).toLocaleString(); }
+function dayKey(ts){const d=new Date(ts);const p=n=>('0'+n).slice(-2);return `${p(d.getMonth()+1)}-${p(d.getDate())}`;}
+function valLabel(f,v){ if(Array.isArray(v))return v; if(f.type==='switch')return v?'是':'否'; if(v==null||v==='')return '（空）'; return String(v); }
+
+/* dashboard config state (persisted) */
+let cfg=read('hdy.dash.v1',{dim:'',measure:'count'});
+function saveCfg(){localStorage.setItem('hdy.dash.v1',JSON.stringify(cfg));}
+
+function render(){
+  const wrap=document.getElementById('wrap');
+  if(!FORM||!dataFields().length){ wrap.innerHTML=`<div class="empty"><div class="big">📊</div><p>还没有表单/数据。请先在 <a href="form.html">表单设计器</a> 建表，并到 <a href="app.html">手机端</a> 提交几条。</p></div>`; return; }
+  if(!instances.length){ wrap.innerHTML=`<div class="empty"><div class="big">📭</div><p>暂无提交数据。到 <a href="app.html">手机端</a> 发起填报后，这里会自动统计。</p></div>`; return; }
+
+  const total=instances.length;
+  const approved=instances.filter(i=>i.status==='approved').length;
+  const running=instances.filter(i=>i.status==='running').length;
+  const rejected=instances.filter(i=>i.status==='rejected').length;
+  const finished=approved+rejected;
+  const rate=finished?Math.round(approved/finished*100):0;
+
+  wrap.innerHTML=`
+    <div class="kpis">
+      <div class="kpi"><div class="n">${total}</div><div class="l">总提交</div></div>
+      <div class="kpi"><div class="n amber">${running}</div><div class="l">审批中</div></div>
+      <div class="kpi"><div class="n green">${approved}</div><div class="l">已通过</div></div>
+      <div class="kpi"><div class="n danger">${rejected}</div><div class="l">已驳回</div></div>
+      <div class="kpi"><div class="n">${rate}%</div><div class="l">通过率</div></div>
+    </div>
+    <div class="row">
+      <div class="card"><h3>状态分布</h3>${donut(approved,running,rejected,total)}</div>
+      <div class="card"><h3>提交趋势（近 14 天）</h3>${trend()}</div>
+    </div>
+    <div class="card"><h3>分组统计 ${groupControls()}</h3><div id="groupChart">${groupChart()}</div></div>
+  `;
+  bind();
+}
+
+function donut(a,r,n,total){
+  const pa=total?a/total*100:0, pr=total?r/total*100:0;
+  const g=`conic-gradient(var(--green) 0 ${pa}%, var(--amber) ${pa}% ${pa+pr}%, var(--danger) ${pa+pr}% 100%)`;
+  const item=(c,t,v)=>`<div class="item"><span class="dot" style="background:${c}"></span>${t} · <b>${v}</b> · ${total?Math.round(v/total*100):0}%</div>`;
+  return `<div class="donut-wrap">
+    <div class="donut" style="background:${g}"><div class="hole"><b>${total}</b><span>总计</span></div></div>
+    <div class="legend">${item('var(--green)','已通过',a)}${item('var(--amber)','审批中',r)}${item('var(--danger)','已驳回',n)}</div>
+  </div>`;
+}
+
+function trend(){
+  const days=14, now=new Date(); const buckets=[];
+  for(let i=days-1;i>=0;i--){ const d=new Date(now); d.setDate(now.getDate()-i); buckets.push({key:dayKey(d.getTime()),ts:d,c:0}); }
+  const map=Object.fromEntries(buckets.map(b=>[b.key,b]));
+  instances.forEach(i=>{ const k=dayKey(i.createdAt); if(map[k]) map[k].c++; });
+  const max=Math.max(1,...buckets.map(b=>b.c));
+  return `<div class="trend">${buckets.map(b=>`<div class="col" title="${b.key}: ${b.c}">
+    <div class="tv">${b.c||''}</div><div class="tb" style="height:${b.c/max*120}px"></div><div class="tl">${b.key}</div></div>`).join('')}</div>`;
+}
+
+function groupControls(){
+  const fs=dataFields();
+  if(!cfg.dim) cfg.dim=fs[0].key;
+  const dimOpts=fs.map(f=>`<option value="${f.key}" ${cfg.dim===f.key?'selected':''}>${esc(f.label)}</option>`).join('');
+  const measOpts=[`<option value="count" ${cfg.measure==='count'?'selected':''}>记录数</option>`]
+    .concat(numFields().flatMap(f=>[
+      `<option value="sum:${f.key}" ${cfg.measure==='sum:'+f.key?'selected':''}>求和 · ${esc(f.label)}</option>`,
+      `<option value="avg:${f.key}" ${cfg.measure==='avg:'+f.key?'selected':''}>求平均 · ${esc(f.label)}</option>`])).join('');
+  return `<span class="ctl"><select id="dim">${dimOpts}</select><select id="measure">${measOpts}</select></span>`;
+}
+function groupChart(){
+  const fs=dataFields(); const dim=fs.find(f=>f.key===cfg.dim)||fs[0];
+  const [mtype,mkey]=cfg.measure.split(':');
+  const agg={};   // label -> {sum,count}
+  instances.forEach(i=>{
+    let keys=valLabel(dim,i.data?.[dim.key]); if(!Array.isArray(keys)) keys=[keys];
+    const add = mtype==='count'?1:num(i.data?.[mkey]);
+    keys.forEach(k=>{ k=String(k); (agg[k]=agg[k]||{sum:0,count:0}); agg[k].sum+=add; agg[k].count+=1; });
+  });
+  let rows=Object.entries(agg).map(([k,v])=>({k, val: mtype==='avg'? (v.count?v.sum/v.count:0) : v.sum }));
+  rows.sort((a,b)=>b.val-a.val); rows=rows.slice(0,10);
+  if(!rows.length) return '<div class="empty" style="padding:24px">无数据</div>';
+  const max=Math.max(...rows.map(r=>r.val),1);
+  return `<div class="bars">${rows.map(r=>`<div class="bar-row">
+    <div class="bar-label" title="${esc(r.k)}">${esc(r.k)}</div>
+    <div class="bar-track"><div class="bar-fill" style="width:${Math.max(2,r.val/max*100)}%"></div></div>
+    <div class="bar-val">${fmtN(r.val)}</div></div>`).join('')}</div>`;
+}
+
+function bind(){
+  const dim=document.getElementById('dim'), meas=document.getElementById('measure');
+  if(dim) dim.onchange=()=>{cfg.dim=dim.value;saveCfg();document.getElementById('groupChart').innerHTML=groupChart();};
+  if(meas) meas.onchange=()=>{cfg.measure=meas.value;saveCfg();document.getElementById('groupChart').innerHTML=groupChart();};
+}
+document.getElementById('refresh').onclick=()=>{FORM=read('hdy.formbuilder.v1',null);instances=read('hdy.instances.v1',[]);render();};
+window.addEventListener('focus',()=>{FORM=read('hdy.formbuilder.v1',null);instances=read('hdy.instances.v1',[]);render();});
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>打印单据 · Print</title>
+<style>
+  :root{--ink:#1f2329;--muted:#6b7177;--border:#d9dde2;--accent:#1677ff}
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:var(--ink);background:#eceff2;font-size:13px}
+  .toolbar{position:sticky;top:0;display:flex;gap:8px;align-items:center;padding:10px 16px;background:#fff;border-bottom:1px solid var(--border)}
+  .toolbar .spacer{flex:1}
+  .btn{border:1px solid var(--border);background:#fff;color:var(--ink);padding:7px 14px;border-radius:6px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-block}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .sheet{background:#fff;max-width:760px;margin:20px auto;padding:42px 46px;box-shadow:0 2px 14px rgba(0,0,0,.08);min-height:1000px}
+  .doc-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:18px}
+  .doc-head .title{font-size:22px;font-weight:700}
+  .doc-head .sub{color:var(--muted);font-size:12px;margin-top:4px}
+  .doc-head .meta{text-align:right;font-size:12px;color:var(--muted);line-height:1.7}
+  .doc-head .meta b{color:var(--ink)}
+  .status{display:inline-block;border:1px solid;border-radius:4px;padding:1px 8px;font-size:12px;font-weight:600}
+  .status.ok{color:#0a8f4e;border-color:#0a8f4e}.status.no{color:#e5484d;border-color:#e5484d}.status.run{color:#d48806;border-color:#d48806}
+  table.kv{width:100%;border-collapse:collapse;margin-bottom:20px}
+  table.kv td{border:1px solid var(--border);padding:8px 10px;vertical-align:top;font-size:13px}
+  table.kv td.k{background:#f7f8fa;color:var(--muted);width:24%;white-space:nowrap}
+  table.lines{width:100%;border-collapse:collapse;margin:6px 0 20px}
+  table.lines th,table.lines td{border:1px solid var(--border);padding:7px 9px;font-size:12px;text-align:left}
+  table.lines th{background:#f7f8fa}
+  table.lines td.num,table.lines th.num{text-align:right}
+  .sec{font-weight:700;font-size:14px;margin:18px 0 8px;border-left:3px solid var(--accent);padding-left:8px}
+  .approvals{font-size:12px}
+  .approvals .ap{display:flex;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border)}
+  .approvals .ap .who{font-weight:600;width:140px}
+  .sign-row{display:flex;gap:40px;margin-top:46px}
+  .sign{flex:1;border-top:1px solid var(--ink);padding-top:6px;color:var(--muted);font-size:12px}
+  .empty{padding:80px;text-align:center;color:var(--muted)}
+  @media print{
+    body{background:#fff}
+    .toolbar{display:none}
+    .sheet{box-shadow:none;margin:0;max-width:none;min-height:auto;padding:0}
+    @page{margin:16mm}
+  }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <a class="btn" href="manage.html">‹ 返回数据管理</a>
+    <span class="spacer"></span>
+    <button class="btn primary" id="btnPrint">🖨 打印 / 导出 PDF</button>
+  </div>
+  <div class="sheet" id="sheet"></div>
+<script>
+const read=(k,f)=>{try{const v=JSON.parse(localStorage.getItem(k));return v==null?f:v;}catch(e){return f;}};
+const FORM=read('hdy.formbuilder.v1',null);
+const instances=read('hdy.instances.v1',[]);
+const LAYOUT=['subtable','columns','group','divider','static_text','tabs','collapse','steps'];
+const NUMERIC=['number','amount','percent','slider','rating'];
+const dataFields=()=>FORM&&Array.isArray(FORM.fields)?FORM.fields.filter(f=>!LAYOUT.includes(f.type)):[];
+function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function fmt(ts){if(!ts)return '';const d=new Date(ts);const p=n=>('0'+n).slice(-2);return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;}
+function cell(f,v){ if(Array.isArray(v))return esc(v.join('、')); if(f.type==='switch')return v?'是':'否'; if(f.type==='rating')return '★'.repeat(Number(v||0)); return (v==null||v==='')?'—':esc(v); }
+function statusInfo(s){return s==='approved'?['ok','已通过']:s==='rejected'?['no','已驳回']:['run','审批中'];}
+
+const id=new URLSearchParams(location.search).get('id');
+const inst=instances.find(i=>i.id===id);
+const sheet=document.getElementById('sheet');
+
+if(!inst){ sheet.innerHTML='<div class="empty">未找到该单据。请从「数据管理」中点击「打印」进入。</div>'; }
+else{
+  const fs=dataFields();
+  // key-value table, two columns per row
+  let kv='<table class="kv">';
+  for(let i=0;i<fs.length;i+=2){
+    const a=fs[i], b=fs[i+1];
+    kv+=`<tr><td class="k">${esc(a.label)}</td><td>${cell(a,inst.data[a.key])}</td>`;
+    kv+= b?`<td class="k">${esc(b.label)}</td><td>${cell(b,inst.data[b.key])}</td></tr>`:`<td></td><td></td></tr>`;
+  }
+  kv+='</table>';
+
+  // approval trail
+  const trail=(inst.steps||[]).filter(s=>s.kind!=='branch').map(s=>{
+    const st=s.kind==='cc'?'抄送':s.status==='approved'?'已同意':s.status==='rejected'?'已驳回':s.status==='pending'?'待审批':'';
+    const who=s.actedBy?esc(s.actedBy):esc((s.assignees||[]).join('、'));
+    return `<div class="ap"><span class="who">${esc(s.name)}</span><span>${st}　${who}${s.comment?'：'+esc(s.comment):''}</span><span style="margin-left:auto;color:#9aa">${s.actedAt?fmt(s.actedAt):''}</span></div>`;
+  }).join('') || '<div class="approvals">（无审批环节）</div>';
+
+  const [scls,stext]=statusInfo(inst.status);
+  sheet.innerHTML=`
+    <div class="doc-head">
+      <div><div class="title">${esc(FORM&&FORM.title||'业务单据')}</div><div class="sub">单据编号：${esc(inst.id)}</div></div>
+      <div class="meta"><div>状态：<span class="status ${scls}">${stext}</span></div>
+        <div>发起人：<b>${esc(inst.initiator)}</b></div>
+        <div>创建：<b>${fmt(inst.createdAt)}</b></div>${inst.resubmittedAt?`<div>重提：${fmt(inst.resubmittedAt)}</div>`:''}</div>
+    </div>
+    <div class="sec">单据内容</div>${kv}
+    <div class="sec">审批记录</div><div class="approvals">${trail}</div>
+    <div class="sign-row"><div class="sign">经办人签字</div><div class="sign">审核人签字</div><div class="sign">日期</div></div>`;
+  document.title=(FORM&&FORM.title||'单据')+' - '+inst.id;
+}
+document.getElementById('btnPrint').onclick=()=>window.print();
+// auto-open print dialog when arriving with ?print=1
+if(inst && new URLSearchParams(location.search).get('print')==='1') setTimeout(()=>window.print(),350);
+</script>
+</body>
+</html>
