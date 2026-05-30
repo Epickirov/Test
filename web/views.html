@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>多视图 · Kanban / Calendar</title>
+<style>
+  :root{--accent:#1677ff;--accent-weak:#e8f1ff;--bg:#f5f6f8;--panel:#fff;--border:#e6e8eb;
+    --text:#1f2329;--muted:#8a8f99;--green:#0a8f4e;--amber:#d48806;--danger:#e5484d;--purple:#6b46c1}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);background:var(--bg);font-size:13px}
+  .app{display:flex;flex-direction:column;height:100vh}
+  .topbar{display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--border);flex:0 0 auto}
+  .topbar .logo{font-weight:700;color:var(--accent);font-size:15px}
+  .topbar .spacer{flex:1}
+  .btn{border:1px solid var(--border);background:#fff;color:var(--text);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-block}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  .toolbar{display:flex;align-items:center;gap:10px;padding:10px 16px;flex-wrap:wrap;background:var(--panel);border-bottom:1px solid var(--border)}
+  .segt{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .segt button{border:0;background:#fff;padding:7px 16px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted)}
+  .segt button.on{background:var(--accent);color:#fff}
+  .toolbar label{color:var(--muted);font-size:12px}
+  .toolbar select{border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-size:13px}
+  .wrap{flex:1;overflow:auto;padding:16px}
+  .empty{text-align:center;color:var(--muted);padding:70px 16px}.empty .big{font-size:46px;opacity:.4}.empty a{color:var(--accent)}
+  /* kanban */
+  .board{display:flex;gap:14px;align-items:flex-start;min-height:100%}
+  .col{flex:0 0 280px;background:#eef0f3;border-radius:12px;padding:10px;display:flex;flex-direction:column;max-height:100%}
+  .col.dragover{outline:2px dashed var(--accent);outline-offset:-2px;background:var(--accent-weak)}
+  .col-h{display:flex;align-items:center;gap:8px;padding:4px 6px 10px;font-weight:600}
+  .col-h .cnt{margin-left:auto;background:#fff;border-radius:10px;padding:0 8px;font-size:12px;color:var(--muted)}
+  .col-h .swatch{width:10px;height:10px;border-radius:3px}
+  .col-sum{font-size:11px;color:var(--muted);padding:0 6px 8px}
+  .cards{display:flex;flex-direction:column;gap:8px;overflow:auto;flex:1;min-height:30px}
+  .kcard{background:#fff;border:1px solid var(--border);border-radius:9px;padding:10px;cursor:grab;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .kcard:active{cursor:grabbing}
+  .kcard.drag{opacity:.4}
+  .kcard .kt{font-weight:600;margin-bottom:4px;font-size:13px;display:flex;align-items:center;gap:6px}
+  .kcard .kf{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted);margin-top:3px}
+  .kcard .kf .v{color:var(--text);font-weight:600;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .kcard .foot{display:flex;align-items:center;gap:6px;margin-top:7px;font-size:11px;color:var(--muted)}
+  .pill{display:inline-block;border-radius:9px;padding:0 7px;font-size:10px;font-weight:700}
+  .pill.run{background:#fff7e6;color:var(--amber)}.pill.ok{background:#eaf7ee;color:var(--green)}.pill.no{background:#fde8e8;color:var(--danger)}
+  .avatar{width:18px;height:18px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px}
+  /* calendar */
+  .cal{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;max-width:1000px;margin:0 auto}
+  .cal-head{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)}
+  .cal-head .m{font-weight:700;font-size:16px}
+  .cal-head .nav{display:flex;gap:6px}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr)}
+  .cal-grid .dow{padding:8px;text-align:center;color:var(--muted);font-size:12px;border-bottom:1px solid var(--border);font-weight:600}
+  .cell{min-height:104px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:5px 6px;overflow:hidden}
+  .cell:nth-child(7n){border-right:0}
+  .cell.dim{background:#fafbfc}
+  .cell .d{font-size:12px;color:var(--muted);margin-bottom:4px}.cell.today .d{color:#fff;background:var(--accent);border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center}
+  .ev{font-size:11px;background:var(--accent-weak);color:var(--accent);border-radius:5px;padding:2px 5px;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+  .ev.ok{background:#eaf7ee;color:var(--green)}.ev.no{background:#fde8e8;color:var(--danger)}.ev.run{background:#fff7e6;color:var(--amber)}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1f2329;color:#fff;padding:9px 16px;border-radius:8px;opacity:0;transition:.25s;pointer-events:none;z-index:90}.toast.show{opacity:.95}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <span class="logo">多视图</span><span class="muted" id="formName"></span>
+    <a class="btn" href="index.html">🏠 首页</a>
+    <a class="btn" href="manage.html">数据管理</a>
+    <a class="btn" href="dashboard.html">数据看板</a>
+    <span class="spacer"></span>
+    <button class="btn" id="refresh">刷新</button>
+  </div>
+  <div class="toolbar" id="toolbar"></div>
+  <div class="wrap" id="wrap"></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+/* =========================================================================
+   多视图 / Multiple views (Kanban + Calendar) over submission data.
+   The pattern shared by Monday boards, Salesforce pipeline, Airtable views:
+   one dataset, many lenses. Kanban groups by approval status OR any choice
+   field (drag a card to set that field). Calendar places records by a date.
+   Shared localStorage with the rest of the suite.
+   ========================================================================= */
+const LS={form:'hdy.formbuilder.v1',inst:'hdy.instances.v1',view:'hdy.viewmode.v1'};
+const read=(k,f)=>{try{const v=JSON.parse(localStorage.getItem(k));return v==null?f:v;}catch(e){return f;}};
+const write=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
+let FORM=read(LS.form,null), instances=read(LS.inst,[]);
+const LAYOUT=['subtable','columns','group','divider','static_text','tabs','collapse','steps'];
+const CHOICE=['radio','dropdown'];                         // single-value choice fields = kanban-groupable
+const DATEISH=['date','datetime'];
+const NUMERIC=['number','amount','percent'];
+const dataFields=()=>FORM&&Array.isArray(FORM.fields)?FORM.fields.filter(f=>!LAYOUT.includes(f.type)):[];
+const choiceFields=()=>dataFields().filter(f=>CHOICE.includes(f.type));
+const dateFields=()=>dataFields().filter(f=>DATEISH.includes(f.type));
+const numFields=()=>dataFields().filter(f=>NUMERIC.includes(f.type));
+function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function num(x){const n=parseFloat(x);return isNaN(n)?0:n;}
+function fmtN(n){return (Math.round(n*100)/100).toLocaleString();}
+function statusCls(s){return s==='approved'?'ok':s==='rejected'?'no':'run';}
+function statusTxt(s){return s==='approved'?'已通过':s==='rejected'?'已驳回':'审批中';}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),1500);}
+
+/* view state */
+let st=Object.assign({mode:'kanban',groupBy:'__status',measure:'count',dateKey:'',calY:null,calM:null}, read(LS.view,{}));
+function saveSt(){write(LS.view,st);}
+
+function render(){
+  document.getElementById('formName').textContent=FORM?('· '+(FORM.title||'')):'';
+  const wrap=document.getElementById('wrap');
+  if(!FORM||!dataFields().length){ document.getElementById('toolbar').innerHTML=''; wrap.innerHTML=`<div class="empty"><div class="big">🗂️</div><p>还没有表单。请先到 <a href="form.html">表单设计器</a> 建表。</p></div>`; return; }
+  if(!instances.length){ document.getElementById('toolbar').innerHTML=''; wrap.innerHTML=`<div class="empty"><div class="big">📭</div><p>暂无数据。到 <a href="app.html">手机端</a> 提交后，这里可看板/日历展示。</p></div>`; return; }
+  renderToolbar();
+  if(st.mode==='kanban') renderKanban(wrap); else renderCalendar(wrap);
+}
+
+function renderToolbar(){
+  const tb=document.getElementById('toolbar');
+  // group-by: status + any choice field
+  const groupOpts=[`<option value="__status" ${st.groupBy==='__status'?'selected':''}>审批状态</option>`]
+    .concat(choiceFields().map(f=>`<option value="${f.key}" ${st.groupBy===f.key?'selected':''}>${esc(f.label)}</option>`)).join('');
+  const measOpts=[`<option value="count" ${st.measure==='count'?'selected':''}>计数</option>`]
+    .concat(numFields().map(f=>`<option value="sum:${f.key}" ${st.measure==='sum:'+f.key?'selected':''}>求和·${esc(f.label)}</option>`)).join('');
+  const dfs=dateFields(); if(!st.dateKey && dfs.length) st.dateKey=dfs[0].key;
+  const dateOpts=dfs.map(f=>`<option value="${f.key}" ${st.dateKey===f.key?'selected':''}>${esc(f.label)}</option>`).join('');
+
+  tb.innerHTML=`<div class="segt">
+      <button data-mode="kanban" class="${st.mode==='kanban'?'on':''}">▦ 看板</button>
+      <button data-mode="calendar" class="${st.mode==='calendar'?'on':''}">📅 日历</button>
+    </div>` +
+    (st.mode==='kanban'
+      ? `<label>分组：</label><select id="groupBy">${groupOpts}</select><label>列汇总：</label><select id="measure">${measOpts}</select>
+         <span class="muted" style="margin-left:auto">拖动卡片到其他列可修改其${st.groupBy==='__status'?'（状态列只读）':'分组字段'}</span>`
+      : (dfs.length? `<label>日期字段：</label><select id="dateKey">${dateOpts}</select>` : `<span class="muted">表单没有日期字段，无法日历展示。可在表单设计器添加「日期」字段。</span>`));
+
+  tb.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{st.mode=b.dataset.mode;saveSt();render();});
+  const gb=tb.querySelector('#groupBy'); if(gb) gb.onchange=()=>{st.groupBy=gb.value;saveSt();render();};
+  const ms=tb.querySelector('#measure'); if(ms) ms.onchange=()=>{st.measure=ms.value;saveSt();render();};
+  const dk=tb.querySelector('#dateKey'); if(dk) dk.onchange=()=>{st.dateKey=dk.value;saveSt();render();};
+}
+
+/* ---------------- Kanban ---------------- */
+const STATUS_COLS=[{v:'running',t:'审批中',c:'var(--amber)'},{v:'approved',t:'已通过',c:'var(--green)'},{v:'rejected',t:'已驳回',c:'var(--danger)'}];
+function columnsFor(){
+  if(st.groupBy==='__status') return STATUS_COLS.map(s=>({key:s.v,label:s.t,color:s.c}));
+  const f=dataFields().find(x=>x.key===st.groupBy);
+  const opts=(f&&f.options)?f.options.slice():[];
+  return opts.map(o=>({key:o,label:o,color:'var(--accent)'})).concat([{key:'__none',label:'（未填）',color:'var(--muted)'}]);
+}
+function groupVal(i){ return st.groupBy==='__status'? i.status : (i.data&&i.data[st.groupBy]!=null&&i.data[st.groupBy]!==''? i.data[st.groupBy] : '__none'); }
+function renderKanban(wrap){
+  const cols=columnsFor();
+  const [mtype,mkey]=st.measure.split(':');
+  wrap.innerHTML=`<div class="board">${cols.map(col=>{
+    const items=instances.filter(i=>String(groupVal(i))===String(col.key));
+    const sum = mtype==='count'? items.length : items.reduce((a,i)=>a+num(i.data&&i.data[mkey]),0);
+    return `<div class="col" data-col="${esc(col.key)}">
+      <div class="col-h"><span class="swatch" style="background:${col.color}"></span>${esc(col.label)}<span class="cnt">${items.length}</span></div>
+      <div class="col-sum">${mtype==='count'?'共 '+items.length+' 条':'合计 '+fmtN(sum)}</div>
+      <div class="cards" data-col="${esc(col.key)}">${items.map(kcard).join('')}</div>
+    </div>`;
+  }).join('')}</div>`;
+  bindKanban(wrap);
+}
+function kcard(i){
+  const fs=dataFields().filter(f=>f.key!==st.groupBy).slice(0,3);
+  const rows=fs.map(f=>`<div class="kf"><span>${esc(f.label)}</span><span class="v">${esc(cell(f,i.data&&i.data[f.key]))}</span></div>`).join('');
+  return `<div class="kcard" draggable="true" data-id="${i.id}">
+    <div class="kt">${esc(i.title||'记录')}</div>${rows}
+    <div class="foot"><span class="avatar">${esc((i.initiator||'?')[0])}</span>${esc(i.initiator||'')}<span class="pill ${statusCls(i.status)}" style="margin-left:auto">${statusTxt(i.status)}</span></div>
+  </div>`;
+}
+function cell(f,v){ if(Array.isArray(v))return v.join('、'); if(f.type==='switch')return v?'是':'否'; if(f.type==='rating')return '★'.repeat(Number(v||0)); return (v==null||v==='')?'—':String(v); }
+function bindKanban(wrap){
+  wrap.querySelectorAll('.kcard').forEach(c=>{
+    c.addEventListener('dragstart',e=>{c.classList.add('drag');e.dataTransfer.setData('text/plain',c.dataset.id);});
+    c.addEventListener('dragend',()=>c.classList.remove('drag'));
+    c.addEventListener('click',()=>window.open('print.html?id='+encodeURIComponent(c.dataset.id),'_blank'));
+  });
+  wrap.querySelectorAll('.col,.cards').forEach(z=>{
+    z.addEventListener('dragover',e=>{e.preventDefault();const col=z.closest('.col');if(col)col.classList.add('dragover');});
+    z.addEventListener('dragleave',()=>{const col=z.closest('.col');if(col)col.classList.remove('dragover');});
+    z.addEventListener('drop',e=>{e.preventDefault();const col=z.closest('.col');if(col)col.classList.remove('dragover');
+      const id=e.dataTransfer.getData('text/plain'); moveCard(id, (z.dataset.col||col.dataset.col)); });
+  });
+}
+function moveCard(id,target){
+  const inst=instances.find(i=>i.id===id); if(!inst)return;
+  if(st.groupBy==='__status'){ toast('审批状态由审批流程决定，不能手动拖动'); return; }
+  const val = target==='__none'? '' : target;
+  if(String(groupVal(inst))===String(target)){ return; }
+  inst.data=inst.data||{}; inst.data[st.groupBy]=val;
+  write(LS.inst,instances); render(); toast('已更新：'+ (dataFields().find(f=>f.key===st.groupBy)||{}).label +' → '+(val||'（清空）'));
+}
+
+/* ---------------- Calendar ---------------- */
+function renderCalendar(wrap){
+  if(!dateFields().length){ wrap.innerHTML=`<div class="empty"><div class="big">📅</div><p>表单没有日期字段。请在 <a href="form.html">表单设计器</a> 添加「日期」类型字段后再用日历视图。</p></div>`; return; }
+  const now=new Date(); if(st.calY==null){st.calY=now.getFullYear();st.calM=now.getMonth();}
+  const y=st.calY,m=st.calM;
+  const first=new Date(y,m,1), start=new Date(first); start.setDate(1-((first.getDay()+6)%7)); // week starts Monday
+  // bucket events by yyyy-mm-dd
+  const ev={};
+  instances.forEach(i=>{ const raw=i.data&&i.data[st.dateKey]; if(!raw)return; const d=new Date(raw); if(isNaN(d))return;
+    const k=d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); (ev[k]=ev[k]||[]).push(i); });
+  const dows=['一','二','三','四','五','六','日'];
+  let cells='';
+  for(let n=0;n<42;n++){ const d=new Date(start); d.setDate(start.getDate()+n);
+    const inMonth=d.getMonth()===m; const isToday=d.toDateString()===now.toDateString();
+    const k=d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); const items=ev[k]||[];
+    const evs=items.slice(0,4).map(i=>`<div class="ev ${statusCls(i.status)}" data-id="${i.id}" title="${esc(i.title)}">${esc(i.title||'记录')}</div>`).join('')
+      + (items.length>4?`<div class="ev" style="background:none;color:var(--muted)">+${items.length-4} 更多</div>`:'');
+    cells+=`<div class="cell ${inMonth?'':'dim'} ${isToday?'today':''}"><div class="d">${d.getDate()}</div>${evs}</div>`;
+    if(n===34 && d.getMonth()!==m && new Date(start).setDate(start.getDate()+35)>new Date(y,m+1,0)) {} // keep 6 weeks
+  }
+  wrap.innerHTML=`<div class="cal">
+    <div class="cal-head"><div class="m">${y} 年 ${m+1} 月</div>
+      <div class="nav"><button class="btn" id="prevM">‹</button><button class="btn" id="todayM">今天</button><button class="btn" id="nextM">›</button></div>
+      <span class="muted" style="margin-left:auto">按「${esc((dateFields().find(f=>f.key===st.dateKey)||{}).label||'')}」展示 · 点事件可打印</span>
+    </div>
+    <div class="cal-grid">${dows.map(d=>`<div class="dow">${d}</div>`).join('')}${cells}</div>
+  </div>`;
+  wrap.querySelector('#prevM').onclick=()=>{st.calM--;if(st.calM<0){st.calM=11;st.calY--;}saveSt();render();};
+  wrap.querySelector('#nextM').onclick=()=>{st.calM++;if(st.calM>11){st.calM=0;st.calY++;}saveSt();render();};
+  wrap.querySelector('#todayM').onclick=()=>{st.calY=now.getFullYear();st.calM=now.getMonth();saveSt();render();};
+  wrap.querySelectorAll('.ev[data-id]').forEach(e=>e.onclick=()=>window.open('print.html?id='+encodeURIComponent(e.dataset.id),'_blank'));
+}
+
+document.getElementById('refresh').onclick=()=>{FORM=read(LS.form,null);instances=read(LS.inst,[]);render();};
+window.addEventListener('focus',()=>{FORM=read(LS.form,null);instances=read(LS.inst,[]);render();});
+render();
+</script>
+</body>
+</html>
