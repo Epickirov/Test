@@ -46,7 +46,17 @@ canvas { display: block; }
     display: flex;
     justify-content: space-between;
     align-items: center;
+    cursor: pointer;
+    user-select: none;
 }
+.h3-right { display: flex; align-items: center; gap: 10px; }
+.collapse-chevron { font-size: 12px; color: #94a3b8; transition: transform 0.2s ease; }
+
+/* Collapsed: show only the header so the greenhouse shows through (e.g. on phones). */
+#info-panel.collapsed { width: auto; max-width: 70vw; }
+#info-panel.collapsed > *:not(h3) { display: none; }
+#info-panel.collapsed h3 { margin: 0; border-bottom: none; padding-bottom: 0; }
+#info-panel.collapsed .collapse-chevron { transform: rotate(-90deg); }
 
 .pulse {
     width: 8px; height: 8px; border-radius: 50%;
@@ -253,3 +263,30 @@ button:active { transform: translateY(0); }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.4); }
+
+/* ---- Phones / narrow screens ---- */
+@media (max-width: 768px) {
+    #info-panel {
+        width: 46vw;
+        max-width: 230px;
+        top: 10px;
+        left: 10px;
+        padding: 12px;
+        font-size: 11px;
+        max-height: 64vh;
+    }
+    #info-panel h3 { font-size: 15px; margin-bottom: 10px; }
+    .data-value { font-size: 14px; }
+    .data-grid { gap: 6px; }
+    .data-item { padding: 6px 8px; }
+
+    #slice-control { width: 44vw; max-width: 200px; top: 10px; right: 10px; padding: 10px; }
+
+    #controls {
+        bottom: 10px;
+        gap: 6px;
+        padding: 6px 8px;
+        border-radius: 16px;
+    }
+    button { padding: 8px 12px; font-size: 11px; }
+}

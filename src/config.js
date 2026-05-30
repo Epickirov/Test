@@ -51,8 +51,8 @@ export const config = {
     sliceOpacity: 0.8,
     showSlice: false,
     showHotSpots: false,
-    scaleMin: 15,                  // auto-tracked temperature scale (°C)
-    scaleMax: 40,
+    scaleMin: 10,                  // fixed temperature→colour scale (°C): blue = cold … red = hot
+    scaleMax: 45,
 
     // ---- Airflow rendering ----
     smokeMode: false,              // render airflow as colored smoke instead of discrete particles

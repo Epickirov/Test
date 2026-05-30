@@ -113,16 +113,7 @@ export class SliceView {
         const L = config.greenhouseLength;
         const H = config.greenhouseHeight;
 
-        // Auto-scale the colour ramp toward the field min/max (low-pass).
-        const field = this.thermal.field;
-        let fMin = Infinity, fMax = -Infinity;
-        for (let i = 0; i < field.length; i += 8) {
-            const v = field[i];
-            if (v < fMin) fMin = v;
-            if (v > fMax) fMax = v;
-        }
-        config.scaleMin = config.scaleMin * 0.95 + fMin * 0.05;
-        config.scaleMax = config.scaleMax * 0.95 + fMax * 0.05;
+        // Fixed, absolute colour scale so colour means temperature (not relative rank).
         const sMin = config.scaleMin;
         const sMax = Math.max(config.scaleMax, config.scaleMin + 2);
 

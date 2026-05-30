@@ -171,7 +171,8 @@ export class SmokeVolume {
                 uEmission: { value: 0.9 },
                 uOpacity: { value: config.smokeOpacity },
                 uNoiseScale: { value: 6.0 },
-                uSteps: { value: 72 },
+                // Fewer raymarch steps on small screens (phones) to keep it interactive.
+                uSteps: { value: Math.min(window.innerWidth, window.innerHeight) < 820 ? 40 : 72 },
             },
             vertexShader: VERTEX_SHADER,
             fragmentShader: FRAGMENT_SHADER,

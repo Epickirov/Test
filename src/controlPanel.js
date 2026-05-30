@@ -14,7 +14,9 @@ import { config, MAX_TARGET_PARTICLES } from './config.js';
  * @returns {GUI}
  */
 export function createControlPanel({ onStructureChange, onParticleCountChange, onResolutionChange }) {
-    const gui = new GUI({ title: 'Simulation Parameters', width: 300 });
+    // Narrower panel on small screens so it doesn't dominate a phone display.
+    const width = window.innerWidth <= 768 ? Math.min(260, window.innerWidth - 24) : 300;
+    const gui = new GUI({ title: 'Simulation Parameters', width });
     gui.close();
 
     const struct = gui.addFolder('Structure');
@@ -40,6 +42,8 @@ export function createControlPanel({ onStructureChange, onParticleCountChange, o
     therm.add(config, 'wallUValue', 1, 10).name('Wall U-value');
     therm.add(config, 'solarGainCoefficient', 0, 1).name('Solar Transmit (τ)');
     therm.add(config, 'coverEmissivity', 0.5, 1.0).name('Cover Emissivity');
+    therm.add(config, 'scaleMin', -10, 30, 1).name('Colour Min (°C)');
+    therm.add(config, 'scaleMax', 20, 60, 1).name('Colour Max (°C)');
 
     const sim = gui.addFolder('Simulation');
     sim.add(config, 'simulationSpeed', { 'Real-Time': 0.0014, '1X': 1, '5X': 5, '20X Fast': 20 }).name('Time Scale');

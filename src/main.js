@@ -109,6 +109,12 @@ class GreenhouseSimulation {
         document.getElementById('reset-simulation')
             .addEventListener('click', () => this.reset());
 
+        // Collapsible info panel (tap the header). Start collapsed on phones so it
+        // doesn't cover the greenhouse.
+        const infoPanel = document.getElementById('info-panel');
+        infoPanel.querySelector('h3').addEventListener('click', () => infoPanel.classList.toggle('collapsed'));
+        if (window.innerWidth <= 768) infoPanel.classList.add('collapsed');
+
         const btnPart = document.getElementById('toggle-particles');
         btnPart.addEventListener('click', () => {
             const visible = !this.particleSystem.showing;
