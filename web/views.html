@@ -56,6 +56,14 @@
   .cell .d{font-size:12px;color:var(--muted);margin-bottom:4px}.cell.today .d{color:#fff;background:var(--accent);border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center}
   .ev{font-size:11px;background:var(--accent-weak);color:var(--accent);border-radius:5px;padding:2px 5px;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
   .ev.ok{background:#eaf7ee;color:var(--green)}.ev.no{background:#fde8e8;color:var(--danger)}.ev.run{background:#fff7e6;color:var(--amber)}
+  .popover{position:fixed;z-index:80;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);padding:6px;min-width:248px;max-height:62vh;overflow:auto;display:none}
+  .popover.show{display:block}
+  .popover .pop-h{display:flex;align-items:center;font-weight:600;padding:6px 8px;font-size:12px;color:var(--muted)}
+  .popover .pop-reset{margin-left:auto;border:0;background:none;color:var(--accent);cursor:pointer;font-size:12px}
+  .popover .pop-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:13px}
+  .popover .pop-row:hover{background:var(--accent-weak)}
+  .popover .pop-type{margin-left:auto;color:var(--muted);font-size:10px}
+  .popover .pop-f{padding:6px 8px 4px;font-size:11px}
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1f2329;color:#fff;padding:9px 16px;border-radius:8px;opacity:0;transition:.25s;pointer-events:none;z-index:90}.toast.show{opacity:.95}
 </style>
 </head>
@@ -73,6 +81,7 @@
   <div class="wrap" id="wrap"></div>
 </div>
 <div class="toast" id="toast"></div>
+<div class="popover" id="cardPop"></div>
 <script>
 /* =========================================================================
    多视图 / Multiple views (Kanban + Calendar) over submission data.
@@ -101,8 +110,14 @@ function statusTxt(s){return s==='approved'?'已通过':s==='rejected'?'已驳�
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),1500);}
 
 /* view state */
-let st=Object.assign({mode:'kanban',groupBy:'__status',measure:'count',dateKey:'',calY:null,calM:null}, read(LS.view,{}));
+let st=Object.assign({mode:'kanban',groupBy:'__status',aggFn:'count',aggField:'',cardFields:null,dateKey:'',calY:null,calM:null}, read(LS.view,{}));
+// migrate legacy measure ('count' | 'sum:key') -> aggFn/aggField
+if(st.measure){ if(String(st.measure).indexOf('sum:')===0){st.aggFn='sum';st.aggField=String(st.measure).slice(4);} else st.aggFn='count'; delete st.measure; }
 function saveSt(){write(LS.view,st);}
+
+const AGG_LABELS={count:'计数',sum:'求和',avg:'平均',min:'最小',max:'最大'};
+function defaultCardFields(){ return dataFields().filter(f=>f.key!==st.groupBy).slice(0,3).map(f=>f.key); }
+function currentCardFields(){ return Array.isArray(st.cardFields)&&st.cardFields.length ? st.cardFields : defaultCardFields(); }
 
 function render(){
   document.getElementById('formName').textContent=FORM?('· '+(FORM.title||'')):'';
@@ -118,8 +133,13 @@ function renderToolbar(){
   // group-by: status + any choice field
   const groupOpts=[`<option value="__status" ${st.groupBy==='__status'?'selected':''}>审批状态</option>`]
     .concat(choiceFields().map(f=>`<option value="${f.key}" ${st.groupBy===f.key?'selected':''}>${esc(f.label)}</option>`)).join('');
-  const measOpts=[`<option value="count" ${st.measure==='count'?'selected':''}>计数</option>`]
-    .concat(numFields().map(f=>`<option value="sum:${f.key}" ${st.measure==='sum:'+f.key?'selected':''}>求和·${esc(f.label)}</option>`)).join('');
+  const nfs=numFields();
+  if(st.aggFn!=='count' && !nfs.some(f=>f.key===st.aggField)) st.aggField = nfs[0]?nfs[0].key:'';
+  const aggList = nfs.length? ['count','sum','avg','min','max'] : ['count'];
+  const aggFnOpts = aggList.map(a=>`<option value="${a}" ${st.aggFn===a?'selected':''}>${AGG_LABELS[a]}</option>`).join('');
+  const aggFieldOpts = nfs.map(f=>`<option value="${f.key}" ${st.aggField===f.key?'selected':''}>${esc(f.label)}</option>`).join('');
+  const cardSel = Array.isArray(st.cardFields)&&st.cardFields.length;
+  const cardBtnLabel = cardSel? `卡片字段 (${st.cardFields.length})` : '卡片字段 (自动)';
   const dfs=dateFields(); if(!st.dateKey && dfs.length) st.dateKey=dfs[0].key;
   const dateOpts=dfs.map(f=>`<option value="${f.key}" ${st.dateKey===f.key?'selected':''}>${esc(f.label)}</option>`).join('');
 
@@ -128,15 +148,40 @@ function renderToolbar(){
       <button data-mode="calendar" class="${st.mode==='calendar'?'on':''}">📅 日历</button>
     </div>` +
     (st.mode==='kanban'
-      ? `<label>分组：</label><select id="groupBy">${groupOpts}</select><label>列汇总：</label><select id="measure">${measOpts}</select>
+      ? `<label>分组：</label><select id="groupBy">${groupOpts}</select>
+         <button class="btn" id="cardBtn">🃏 ${cardBtnLabel} ▾</button>
+         <label>列汇总：</label><select id="aggFn">${aggFnOpts}</select>
+         ${ st.aggFn!=='count' && nfs.length ? `<select id="aggField">${aggFieldOpts}</select>` : '' }
          <span class="muted" style="margin-left:auto">拖动卡片到其他列可修改其${st.groupBy==='__status'?'（状态列只读）':'分组字段'}</span>`
       : (dfs.length? `<label>日期字段：</label><select id="dateKey">${dateOpts}</select>` : `<span class="muted">表单没有日期字段，无法日历展示。可在表单设计器添加「日期」字段。</span>`));
 
   tb.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{st.mode=b.dataset.mode;saveSt();render();});
   const gb=tb.querySelector('#groupBy'); if(gb) gb.onchange=()=>{st.groupBy=gb.value;saveSt();render();};
-  const ms=tb.querySelector('#measure'); if(ms) ms.onchange=()=>{st.measure=ms.value;saveSt();render();};
+  const af=tb.querySelector('#aggFn'); if(af) af.onchange=()=>{st.aggFn=af.value;saveSt();render();};
+  const afl=tb.querySelector('#aggField'); if(afl) afl.onchange=()=>{st.aggField=afl.value;saveSt();render();};
+  const cb=tb.querySelector('#cardBtn'); if(cb) cb.onclick=(e)=>{e.stopPropagation();openCardPicker(cb);};
   const dk=tb.querySelector('#dateKey'); if(dk) dk.onchange=()=>{st.dateKey=dk.value;saveSt();render();};
 }
+
+/* per-stage card-field picker (which metrics show on each card) */
+function openCardPicker(anchor){
+  const pop=document.getElementById('cardPop');
+  const sel=currentCardFields(), fs=dataFields();
+  pop.innerHTML=`<div class="pop-h">卡片显示字段<button class="pop-reset" id="popReset">恢复默认</button></div>`
+    + fs.map(f=>`<label class="pop-row"><input type="checkbox" data-k="${f.key}" ${sel.includes(f.key)?'checked':''}> ${esc(f.label)} <span class="pop-type">${f.type}</span></label>`).join('')
+    + `<div class="pop-f muted">勾选要在卡片上显示的字段（建议 2–5 个）</div>`;
+  const r=anchor.getBoundingClientRect();
+  pop.style.left=Math.max(8,Math.min(r.left, window.innerWidth-264))+'px';
+  pop.style.top=(r.bottom+6)+'px';
+  pop.classList.add('show');
+  pop.querySelectorAll('input[data-k]').forEach(c=>c.onchange=()=>{
+    let cur=currentCardFields().slice();
+    if(c.checked){ if(!cur.includes(c.dataset.k)) cur.push(c.dataset.k); } else cur=cur.filter(k=>k!==c.dataset.k);
+    st.cardFields=cur; saveSt(); render(); openCardPicker(document.getElementById('cardBtn'));
+  });
+  pop.querySelector('#popReset').onclick=()=>{ st.cardFields=null; saveSt(); render(); openCardPicker(document.getElementById('cardBtn')); };
+}
+document.addEventListener('click',e=>{ const pop=document.getElementById('cardPop'); if(pop.classList.contains('show')&&!e.target.closest('#cardPop')&&!e.target.closest('#cardBtn')) pop.classList.remove('show'); });
 
 /* ---------------- Kanban ---------------- */
 const STATUS_COLS=[{v:'running',t:'审批中',c:'var(--amber)'},{v:'approved',t:'已通过',c:'var(--green)'},{v:'rejected',t:'已驳回',c:'var(--danger)'}];
@@ -147,22 +192,33 @@ function columnsFor(){
   return opts.map(o=>({key:o,label:o,color:'var(--accent)'})).concat([{key:'__none',label:'（未填）',color:'var(--muted)'}]);
 }
 function groupVal(i){ return st.groupBy==='__status'? i.status : (i.data&&i.data[st.groupBy]!=null&&i.data[st.groupBy]!==''? i.data[st.groupBy] : '__none'); }
+function colAgg(items){
+  if(st.aggFn==='count') return '共 '+items.length+' 条';
+  const f=dataFields().find(x=>x.key===st.aggField); if(!f) return '共 '+items.length+' 条';
+  const vals=items.map(i=>i.data&&i.data[st.aggField]).filter(v=>v!=null&&v!=='').map(num);
+  let v=0;
+  if(vals.length){
+    if(st.aggFn==='sum') v=vals.reduce((a,b)=>a+b,0);
+    else if(st.aggFn==='avg') v=vals.reduce((a,b)=>a+b,0)/vals.length;
+    else if(st.aggFn==='min') v=Math.min(...vals);
+    else if(st.aggFn==='max') v=Math.max(...vals);
+  }
+  return AGG_LABELS[st.aggFn]+' '+fmtN(v)+' · '+esc(f.label);
+}
 function renderKanban(wrap){
   const cols=columnsFor();
-  const [mtype,mkey]=st.measure.split(':');
   wrap.innerHTML=`<div class="board">${cols.map(col=>{
     const items=instances.filter(i=>String(groupVal(i))===String(col.key));
-    const sum = mtype==='count'? items.length : items.reduce((a,i)=>a+num(i.data&&i.data[mkey]),0);
     return `<div class="col" data-col="${esc(col.key)}">
       <div class="col-h"><span class="swatch" style="background:${col.color}"></span>${esc(col.label)}<span class="cnt">${items.length}</span></div>
-      <div class="col-sum">${mtype==='count'?'共 '+items.length+' 条':'合计 '+fmtN(sum)}</div>
+      <div class="col-sum">${colAgg(items)}</div>
       <div class="cards" data-col="${esc(col.key)}">${items.map(kcard).join('')}</div>
     </div>`;
   }).join('')}</div>`;
   bindKanban(wrap);
 }
 function kcard(i){
-  const fs=dataFields().filter(f=>f.key!==st.groupBy).slice(0,3);
+  const fs=currentCardFields().map(k=>dataFields().find(f=>f.key===k)).filter(Boolean);
   const rows=fs.map(f=>`<div class="kf"><span>${esc(f.label)}</span><span class="v">${esc(cell(f,i.data&&i.data[f.key]))}</span></div>`).join('');
   return `<div class="kcard" draggable="true" data-id="${i.id}">
     <div class="kt">${esc(i.title||'记录')}</div>${rows}
