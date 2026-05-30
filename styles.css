@@ -90,6 +90,23 @@ canvas { display: block; }
     font-weight: 600;
 }
 
+.control-row { margin: 8px 0 12px 0; }
+.control-row label {
+    display: block;
+    font-size: 11px;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+.control-row .control-value { float: right; color: var(--accent); font-weight: 600; }
+.control-row input[type=range] {
+    width: 100%;
+    margin: 0;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
 .zone-temp {
     display: flex;
     justify-content: space-between;

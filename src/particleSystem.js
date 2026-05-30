@@ -76,7 +76,7 @@ export class ParticleSystem {
         trailGeo.setAttribute('position', new THREE.BufferAttribute(this.trailPositions, 3).setUsage(THREE.DynamicDrawUsage));
         trailGeo.setAttribute('color', new THREE.BufferAttribute(this.trailColors, 3).setUsage(THREE.DynamicDrawUsage));
         this.trailMesh = new THREE.LineSegments(trailGeo, new THREE.LineBasicMaterial({
-            vertexColors: true, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending,
+            vertexColors: true, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending,
         }));
         this.scene.add(this.trailMesh);
 
@@ -214,6 +214,7 @@ export class ParticleSystem {
         const useFluid = config.useFluidSimulation && this.fluid.available;
         const smoke = config.smokeMode;
         const drawTrails = this.showing && !smoke && config.showParticleTrails;
+        this.trailMesh.visible = drawTrails; // reflect the live GUI toggle
 
         const nearestFan = (px) => {
             let best = fans[0], bestDist = Infinity;

@@ -29,10 +29,9 @@ export function createControlPanel({ onStructureChange, onParticleCountChange, o
     equip.add(config, 'coolingPadElevation', 0, 2.0).name('Pad Elevation (m)').onFinishChange(onStructureChange);
     equip.add(config, 'padEffectiveness', 0.3, 0.95).name('Pad ε (typ 0.85)');
 
+    // Outside air temperature + humidity live in the on-screen Climate Controls panel.
     const env = gui.addFolder('Environment');
-    env.add(config, 'outsideTemp', 15, 45).name('Peak Outside (°C)');
     env.add(config, 'outsideMinTemp', 5, 30).name('Night Min (°C)');
-    env.add(config, 'airHumidity', 0, 100).name('Humidity (%)');
     env.add(config, 'maxLux', 10000, 120000, 1000).name('Peak LUX');
 
     const therm = gui.addFolder('Thermal Field');
@@ -45,6 +44,7 @@ export function createControlPanel({ onStructureChange, onParticleCountChange, o
     const sim = gui.addFolder('Simulation');
     sim.add(config, 'simulationSpeed', { 'Real-Time': 0.0014, '1X': 1, '5X': 5, '20X Fast': 20 }).name('Time Scale');
     sim.add(config, 'particleCount', 100, MAX_TARGET_PARTICLES, 100).name('Particle Count').onFinishChange(onParticleCountChange);
+    sim.add(config, 'showParticleTrails').name('Particle Trails');
     sim.add(config, 'fluidResolution', { 'Low (24)': 24, 'Med (32)': 32, 'High (48)': 48 })
         .name('Field Resolution').onFinishChange(onResolutionChange);
 

@@ -72,8 +72,8 @@ export class Environment {
         const dayFactor = calculateDayFactor(this.currentTime);
         this.sun.intensity = Math.max(0, dayFactor * 2);
 
-        const tempRange = config.outsideTemp - config.outsideMinTemp;
-        const baseTemp = config.outsideMinTemp + (tempRange * dayFactor);
-        this.outsideTemperature = baseTemp + (dayFactor > 0.5 ? 2 : -2);
+        // outsideTemp is the user-set daytime peak; the air cools toward the
+        // night minimum as the sun drops. (At solar noon, outside == outsideTemp.)
+        this.outsideTemperature = config.outsideTemp - (1 - dayFactor) * (config.outsideTemp - config.outsideMinTemp);
     }
 }

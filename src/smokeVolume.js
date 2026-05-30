@@ -36,7 +36,7 @@ precision highp sampler3D;
 
 in vec3 vOrigin;
 in vec3 vDirection;
-out vec4 color;
+layout(location = 0) out vec4 color;
 
 uniform sampler3D uVolume;
 uniform vec3 uSunDir;       // object-space direction toward the sun
@@ -177,6 +177,7 @@ export class SmokeVolume {
             fragmentShader: FRAGMENT_SHADER,
             transparent: true,
             depthWrite: false,
+            depthTest: false, // the transparent glass shell writes depth; don't let it cull the smoke
             side: THREE.BackSide,
         });
 

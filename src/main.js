@@ -153,6 +153,30 @@ class GreenhouseSimulation {
             document.getElementById('slice-op-label').textContent = `${e.target.value}%`;
             this.sliceView.setOpacity(config.sliceOpacity);
         });
+
+        // Climate controls (on-screen sliders for outside air temp + humidity).
+        const outTemp = document.getElementById('ctl-outtemp');
+        outTemp.value = config.outsideTemp;
+        document.getElementById('ctl-outtemp-val').textContent = config.outsideTemp;
+        outTemp.addEventListener('input', (e) => {
+            config.outsideTemp = Number(e.target.value);
+            document.getElementById('ctl-outtemp-val').textContent = e.target.value;
+            this._refreshGui();
+        });
+
+        const humidity = document.getElementById('ctl-humidity');
+        humidity.value = config.airHumidity;
+        document.getElementById('ctl-humidity-val').textContent = config.airHumidity;
+        humidity.addEventListener('input', (e) => {
+            config.airHumidity = Number(e.target.value);
+            document.getElementById('ctl-humidity-val').textContent = e.target.value;
+            this._refreshGui();
+        });
+    }
+
+    /** Push config changes made outside lil-gui back into its on-screen widgets. */
+    _refreshGui() {
+        if (this.gui) this.gui.controllersRecursive().forEach((c) => c.updateDisplay());
     }
 
     reset() {
@@ -190,7 +214,7 @@ class GreenhouseSimulation {
 
         // Stagger the expensive visual/UI updates across frames.
         if (config.showSlice && this._frame % 2 === 0) this.sliceView.updateTexture();
-        if (config.showHotSpots && this._frame % 6 === 0) this.hotSpots.update();
+        if (config.showHotSpots) this.hotSpots.update(); // every frame → smooth marker tracking
         if (this._frame % 3 === 0) {
             this.hud.update();
             this.greenhouse.update(this.thermalField);
