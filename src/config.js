@@ -58,6 +58,7 @@ export const config = {
     smokeMode: false,              // render airflow as colored smoke instead of discrete particles
     smokeSize: 1.4,                // smoke puff size (sprite fallback) / density scale (volumetric)
     smokeOpacity: 0.7,
+    showStreaklines: false,        // wind-tunnel streakline overlay (independent of particles/smoke)
 };
 
 /**

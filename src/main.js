@@ -15,6 +15,7 @@ import { ParticleSystem } from './particleSystem.js';
 import { SliceView } from './sliceView.js';
 import { HotSpots } from './hotSpots.js';
 import { SmokeVolume } from './smokeVolume.js';
+import { Streaklines } from './streaklines.js';
 import { Hud } from './hud.js';
 import { createControlPanel } from './controlPanel.js';
 
@@ -72,6 +73,7 @@ class GreenhouseSimulation {
         this.sliceView = new SliceView(this.scene, this.thermalField);
         this.hotSpots = new HotSpots(this.scene, this.thermalField);
         this.smokeVolume = new SmokeVolume(this.scene, this.thermalField);
+        this.streaklines = new Streaklines(this.scene, this.thermalField);
         this.hud = new Hud(this.thermalField, this.evaporativeCooling, this.environment, this.particleSystem);
 
         this.gui = createControlPanel({
@@ -92,6 +94,7 @@ class GreenhouseSimulation {
         this.fluidField.init();
         this.sliceView.rebuildMesh();
         this.smokeVolume.init();
+        this.streaklines.init();
     }
 
     /** Switch between particle and smoke airflow rendering (volumetric, or sprite fallback). */
@@ -128,6 +131,15 @@ class GreenhouseSimulation {
             this._setSmoke(smoke);
             btnSmoke.classList.toggle('active', smoke);
             btnSmoke.textContent = smoke ? 'Particles' : 'Smoke';
+        });
+
+        // Streaklines are an independent overlay — they layer on top of either
+        // the particle or the smoke view (or show on their own).
+        const btnStreak = document.getElementById('toggle-streak');
+        btnStreak.addEventListener('click', () => {
+            config.showStreaklines = !config.showStreaklines;
+            this.streaklines.setVisible(config.showStreaklines);
+            btnStreak.classList.toggle('active', config.showStreaklines);
         });
 
         const btnSlice = document.getElementById('toggle-slice');
@@ -190,6 +202,7 @@ class GreenhouseSimulation {
         this.environment.currentTime = 12;
         this.thermalField.reset();
         this.fluidField.reset();
+        this.streaklines.reset();
     }
 
     _onResize() {
@@ -212,6 +225,8 @@ class GreenhouseSimulation {
         this.fluidField.update(sdt);
         this.particleSystem.update(sdt);
         this.thermalField.update(sdt);
+
+        if (config.showStreaklines) this.streaklines.update(sdt);
 
         if (config.smokeMode && this.smokeVolume.visible) {
             this._sunDir.copy(this.environment.sun.position);
