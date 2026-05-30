@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>审批流程设计器 · Approval Flow Builder</title>
+<style>
+  :root{
+    --accent:#1677ff; --accent-weak:#e8f1ff; --bg:#f5f6f8; --panel:#fff;
+    --border:#e6e8eb; --text:#1f2329; --muted:#8a8f99; --danger:#e5484d;
+    --green:#0a8f4e; --amber:#d48806; --radius:8px; --shadow:0 1px 3px rgba(0,0,0,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);background:var(--bg);font-size:13px}
+  .app{display:flex;flex-direction:column;height:100vh}
+  .topbar{display:flex;align-items:center;gap:12px;height:52px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--border);flex:0 0 auto}
+  .topbar .logo{font-weight:700;color:var(--accent);font-size:15px}
+  .topbar .title-input{font-size:14px;font-weight:600;border:1px solid transparent;padding:6px 8px;border-radius:6px;min-width:240px}
+  .topbar .title-input:hover{border-color:var(--border)}
+  .topbar .title-input:focus{border-color:var(--accent);outline:none}
+  .topbar .spacer{flex:1}
+  .btn{border:1px solid var(--border);background:#fff;color:var(--text);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-block}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{opacity:.92;color:#fff}
+  .main{display:flex;flex:1;min-height:0}
+  .canvas-wrap{flex:1;overflow:auto;padding:30px 20px}
+  /* flow */
+  .flow{display:flex;flex-direction:column;align-items:center;min-width:max-content;margin:0 auto}
+  .node{display:flex;align-items:center;gap:10px;width:248px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;box-shadow:var(--shadow);cursor:pointer;position:relative}
+  .node:hover{border-color:var(--accent)}
+  .node.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-weak)}
+  .node .ic{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex:0 0 auto;color:#fff}
+  .node.start .ic{background:var(--green)} .node.approver .ic{background:var(--accent)}
+  .node.cc .ic{background:var(--amber)} .node.end .ic{background:var(--danger)}
+  .node .body{min-width:0;flex:1}
+  .node .nm{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .node .sub{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .node .sub.empty{color:var(--danger)}
+  .node .del{position:absolute;top:-9px;right:-9px;width:20px;height:20px;border-radius:50%;border:1px solid var(--border);background:#fff;cursor:pointer;display:none;font-size:11px;line-height:1}
+  .node:hover .del{display:block} .node .del:hover{border-color:var(--danger);color:var(--danger)}
+  .connector{width:2px;height:30px;background:var(--border);position:relative;flex:0 0 auto}
+  .plus{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:#fff;color:var(--accent);cursor:pointer;font-size:15px;line-height:1;z-index:2}
+  .plus:hover{border-color:var(--accent);background:var(--accent-weak)}
+  /* condition / branches */
+  .cond-block{display:flex;flex-direction:column;align-items:center}
+  .branches{display:flex;gap:26px;align-items:flex-start;position:relative;padding-top:26px}
+  .branches::before{content:"";position:absolute;top:0;left:8%;right:8%;height:2px;background:var(--border)}
+  .branch{display:flex;flex-direction:column;align-items:center;background:#fafcff;border:1px dashed var(--border);border-radius:10px;padding:10px 14px 14px;min-width:240px}
+  .branch-head{align-self:stretch;background:#fff;border:1px solid var(--border);border-radius:8px;padding:7px 10px;margin-bottom:6px;font-size:12px;cursor:pointer;color:var(--accent)}
+  .branch-head.def{color:var(--muted)}
+  .branch-head .blbl{font-weight:600;color:var(--text)}
+  /* right panel */
+  .panel{width:330px;flex:0 0 auto;background:var(--panel);border-left:1px solid var(--border);overflow:auto;padding:14px 16px}
+  .panel h3{font-size:13px;margin:0 0 12px;display:flex;align-items:center;gap:6px}
+  .prop{margin-bottom:14px}
+  .prop > label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+  .prop input[type=text],.prop select,.prop input:not([type]){width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px}
+  .inline{display:flex;gap:6px;align-items:center}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+  .chip{display:inline-flex;align-items:center;gap:5px;background:var(--accent-weak);color:var(--accent);border-radius:14px;padding:3px 9px;font-size:12px}
+  .chip b{font-weight:600} .chip .x{cursor:pointer;opacity:.7} .chip .x:hover{opacity:1}
+  .kind-user{background:var(--accent-weak);color:var(--accent)} .kind-role{background:#fff1e6;color:#d4640e}
+  .kind-dept{background:#eaf7ee;color:var(--green)} .kind-mgr,.kind-self{background:#f0eefc;color:#6b46c1}
+  .seg{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+  .seg button{flex:1;border:0;background:#fff;padding:7px 4px;cursor:pointer;font-size:12px}
+  .seg button.on{background:var(--accent);color:#fff}
+  .rule{display:flex;gap:5px;align-items:center;margin-bottom:6px}
+  .rule select,.rule input{padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;min-width:0}
+  .rule .rx{cursor:pointer;color:var(--muted);padding:2px 4px} .rule .rx:hover{color:var(--danger)}
+  .branch-edit{border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:10px}
+  .branch-edit .behead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .mini{font-size:11px;color:var(--muted)}
+  .linkbtn{background:none;border:none;color:var(--accent);cursor:pointer;font-size:12px;padding:0}
+  /* permission matrix */
+  .perm{width:100%;border-collapse:collapse;font-size:12px}
+  .perm th,.perm td{border-bottom:1px solid var(--border);padding:5px 4px;text-align:center}
+  .perm th:first-child,.perm td:first-child{text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
+  .perm thead th{color:var(--muted);font-weight:600;position:sticky;top:0;background:#fff}
+  .perm tr.all td{background:#fafcff;font-weight:600}
+  .perm input{cursor:pointer}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1f2329;color:#fff;padding:8px 16px;border-radius:8px;opacity:0;transition:.25s;pointer-events:none;z-index:60}
+  .toast.show{opacity:.95}
+  /* add menu */
+  .add-menu{position:fixed;display:none;flex-direction:column;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:70;overflow:hidden}
+  .add-menu.show{display:flex}
+  .add-menu button{border:0;background:#fff;padding:9px 16px;text-align:left;cursor:pointer;font-size:13px;white-space:nowrap}
+  .add-menu button:hover{background:var(--accent-weak)}
+  /* modal */
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;z-index:80}
+  .modal-bg.show{display:flex}
+  .modal{background:#fff;border-radius:10px;width:680px;max-width:92vw;max-height:84vh;display:flex;flex-direction:column;overflow:hidden}
+  .modal header{padding:14px 18px;border-bottom:1px solid var(--border);font-weight:600;display:flex;align-items:center}
+  .modal header .spacer{flex:1}
+  .modal .mbody{padding:16px 18px;overflow:auto}
+  .modal textarea{width:100%;height:340px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;border:1px solid var(--border);border-radius:6px;padding:10px}
+  .modal footer{padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <span class="logo">审批流程设计器</span>
+    <input class="title-input" id="flowTitle" value="内部订单设置流程 - 审批流程" />
+    <a class="btn" href="index.html">← 表单设计器</a>
+    <span class="spacer"></span>
+    <span class="mini" id="fieldSrc"></span>
+    <button class="btn" id="btnImport">导入</button>
+    <button class="btn" id="btnExport">导出 JSON</button>
+    <button class="btn primary" id="btnSave">保存</button>
+  </div>
+  <div class="main">
+    <div class="canvas-wrap"><div class="flow" id="flow"></div></div>
+    <aside class="panel" id="panel"></aside>
+  </div>
+</div>
+
+<div class="add-menu" id="addMenu">
+  <button data-add="approver">👤 审批人</button>
+  <button data-add="cc">📧 抄送人</button>
+  <button data-add="condition">🔀 条件分支</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <header><span id="modalTitle">流程定义 JSON</span><span class="spacer"></span><button class="btn" id="modalClose">关闭</button></header>
+    <div class="mbody"><textarea id="jsonArea" spellcheck="false"></textarea></div>
+    <footer>
+      <button class="btn" id="jsonCopy">复制</button>
+      <button class="btn" id="jsonDownload">下载 .json</button>
+      <button class="btn primary" id="jsonApply" style="display:none">应用导入</button>
+    </footer>
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   审批流程设计器 / Approval flow builder (zero-dependency prototype)
+   Model: a top-down flow = start node + an ordered chain of nodes. Nodes are
+   approver / cc / condition. A condition node branches into parallel paths,
+   each with a boolean rule group and its own nested chain. Each non-condition
+   node carries a per-field permission map (view/edit/required/hidden) that is
+   populated from the form schema produced by the form designer.
+   ========================================================================= */
+
+/* ---- field source: read the form built in index.html ---- */
+const DEMO_FIELDS = [
+  {key:'serial', label:'流水号'}, {key:'fill_date', label:'填表日期'},
+  {key:'ship_date', label:'发货日期'}, {key:'pack_unit', label:'包货单位'},
+  {key:'retail_wholesale', label:'零售/批发'}, {key:'sales', label:'业务员'},
+  {key:'dest_unit', label:'发往单位'}, {key:'out_wh', label:'出货仓库'},
+  {key:'in_wh', label:'入库仓库'}, {key:'cust_name', label:'客户单位名称'},
+  {key:'contact', label:'联系人名称'}, {key:'pay_method', label:'支付方式'},
+  {key:'dest', label:'发货目的地'}, {key:'logistics', label:'指定物流'},
+  {key:'remark', label:'重要备注'}, {key:'product_cat', label:'产品类别'},
+];
+const LAYOUT_TYPES = ['subtable','columns','group','divider','static_text','tabs','collapse','steps'];
+function loadFormFields(){
+  try{
+    const f = JSON.parse(localStorage.getItem('hdy.formbuilder.v1'));
+    if (f && Array.isArray(f.fields)){
+      const fields = f.fields.filter(x=>!LAYOUT_TYPES.includes(x.type)).map(x=>({key:x.key, label:x.label}));
+      if (fields.length) return {fields, from:'表单设计器：'+(f.title||'未命名')};
+    }
+  }catch(e){}
+  return {fields:DEMO_FIELDS, from:'示例字段（先去表单设计器建表单可自动同步）'};
+}
+let FIELDSRC = loadFormFields();
+const FIELDS = () => FIELDSRC.fields;
+
+/* ---- constants ---- */
+const KINDS = [
+  {v:'user', t:'人员', cls:'kind-user', needName:true},
+  {v:'role', t:'角色', cls:'kind-role', needName:true},
+  {v:'dept', t:'部门', cls:'kind-dept', needName:true},
+  {v:'mgr',  t:'发起人主管', cls:'kind-mgr', needName:false},
+  {v:'self', t:'发起人本人', cls:'kind-self', needName:false},
+];
+const KIND_MAP = Object.fromEntries(KINDS.map(k=>[k.v,k]));
+const RULES = [
+  {v:'any', t:'或签（一人通过即可）'},
+  {v:'all', t:'会签（需全部通过）'},
+  {v:'seq', t:'依次审批'},
+];
+const RULE_MAP = Object.fromEntries(RULES.map(r=>[r.v,r]));
+const OPS = [
+  {v:'eq',t:'等于',val:true},{v:'ne',t:'不等于',val:true},
+  {v:'gt',t:'大于',val:true},{v:'lt',t:'小于',val:true},
+  {v:'gte',t:'大于等于',val:true},{v:'lte',t:'小于等于',val:true},
+  {v:'contains',t:'包含',val:true},{v:'empty',t:'为空',val:false},{v:'notempty',t:'不为空',val:false},
+];
+const OP_MAP = Object.fromEntries(OPS.map(o=>[o.v,o]));
+const PERM_COLS = [{k:'view',t:'查看'},{k:'edit',t:'编辑'},{k:'required',t:'必填'},{k:'hidden',t:'隐藏'}];
+
+/* ---- state ---- */
+const uid = () => 'n'+Math.random().toString(36).slice(2,8);
+function newApprover(){ return {id:uid(), type:'approver', name:'审批人', approvers:[], rule:'any', perms:{}}; }
+function newCC(){ return {id:uid(), type:'cc', name:'抄送人', cc:[], perms:{}}; }
+function newCondition(){
+  return {id:uid(), type:'condition', name:'条件分支', branches:[
+    {id:uid(), name:'条件一', logic:'AND', rules:[], isDefault:false, children:[]},
+    {id:uid(), name:'其他情况', logic:'AND', rules:[], isDefault:true, children:[]},
+  ]};
+}
+function freshFlow(){
+  return { title:'内部订单设置流程 - 审批流程',
+    start:{id:'start', type:'start', name:'发起审批流程', perms:{}},
+    root:[] };
+}
+let flow = load() || freshFlow();
+let selectedId = 'start';
+let pending = null; // {owner, idx} for add menu
+
+/* ---- persistence ---- */
+function save(){ localStorage.setItem('hdy.flow.v1', JSON.stringify(flow)); }
+function load(){ try{ return JSON.parse(localStorage.getItem('hdy.flow.v1')); }catch(e){ return null; } }
+
+/* ---- tree helpers ---- */
+function walkBranches(chain, cb){
+  chain.forEach(n=>{ if(n.type==='condition'){ n.branches.forEach(b=>{ cb(b); walkBranches(b.children, cb); }); } });
+}
+function arrayByOwner(owner){
+  if (owner==='root') return flow.root;
+  let arr=null; walkBranches(flow.root, b=>{ if(b.id===owner) arr=b.children; });
+  return arr;
+}
+function allArrays(){ const a=[flow.root]; walkBranches(flow.root, b=>a.push(b.children)); return a; }
+function findNode(id){
+  if (id==='start') return flow.start;
+  let found=null; for(const arr of allArrays()){ const n=arr.find(x=>x.id===id); if(n){found=n;break;} } return found;
+}
+function findBranch(id){ let f=null; walkBranches(flow.root, b=>{ if(b.id===id) f=b; }); return f; }
+function removeNode(id){ for(const arr of allArrays()){ const i=arr.findIndex(n=>n.id===id); if(i>=0){ arr.splice(i,1); return; } } }
+
+/* ---- mutations ---- */
+function addNode(type){
+  if(!pending) return;
+  const arr = arrayByOwner(pending.owner); if(!arr) return;
+  const node = type==='approver'?newApprover():type==='cc'?newCC():newCondition();
+  arr.splice(pending.idx, 0, node);
+  selectedId = node.id; pending=null; hideMenu(); commit();
+}
+function select(id){ selectedId=id; renderFlow(); renderPanel(); }
+function commit(){ save(); renderFlow(); renderPanel(); }
+
+/* ===========================  RENDER FLOW  =========================== */
+function renderFlow(){
+  document.getElementById('flowTitle').value = flow.title;
+  document.getElementById('fieldSrc').textContent = '字段来源 · ' + FIELDSRC.from;
+  const el = document.getElementById('flow');
+  el.innerHTML =
+    nodeCard(flow.start) +
+    chainHtml(flow.root, 'root') +
+    `<div class="connector"></div>` +
+    `<div class="node end"><div class="ic">■</div><div class="body"><div class="nm">结束审批流程</div></div></div>`;
+  bindFlow(el);
+}
+function chainHtml(chain, owner){
+  let h = '';
+  for (let i=0;i<chain.length;i++){
+    h += connector(owner, i);
+    h += chain[i].type==='condition' ? condHtml(chain[i]) : nodeCard(chain[i]);
+  }
+  h += connector(owner, chain.length);
+  return h;
+}
+function connector(owner, idx){
+  return `<div class="connector"><button class="plus" data-owner="${owner}" data-idx="${idx}">+</button></div>`;
+}
+function nodeCard(n){
+  const sel = n.id===selectedId?' sel':'';
+  let ic='▶', sub='', cls=n.type;
+  if (n.type==='start'){ ic='▶'; sub='表单发起 · '+FIELDS().length+' 个字段'; }
+  if (n.type==='approver'){
+    ic='👤';
+    sub = n.approvers.length ? (n.approvers.map(a=>approverLabel(a)).join('、')+' · '+RULE_MAP[n.rule].t.replace(/（.*/,'')) : '请设置审批人';
+  }
+  if (n.type==='cc'){ ic='📧'; sub = n.cc.length ? n.cc.map(a=>approverLabel(a)).join('、') : '请设置抄送人'; }
+  const subCls = ((n.type==='approver'&&!n.approvers.length)||(n.type==='cc'&&!n.cc.length))?'sub empty':'sub';
+  const del = n.type==='start' ? '' : `<button class="del" data-del="${n.id}">✕</button>`;
+  return `<div class="node ${cls}${sel}" data-id="${n.id}">
+    <div class="ic">${ic}</div>
+    <div class="body"><div class="nm">${esc(n.name)}</div><div class="${subCls}">${esc(sub)}</div></div>
+    ${del}</div>`;
+}
+function condHtml(n){
+  const sel = n.id===selectedId?' sel':'';
+  return `<div class="cond-block">
+    <div class="connector"></div>
+    <div class="node cc${sel}" data-id="${n.id}" style="background:#fff">
+      <div class="ic" style="background:#6b46c1">🔀</div>
+      <div class="body"><div class="nm">${esc(n.name)}</div><div class="sub">${n.branches.length} 条分支</div></div>
+      <button class="del" data-del="${n.id}">✕</button>
+    </div>
+    <div class="branches">
+      ${n.branches.map(b=>`<div class="branch">
+          <div class="branch-head ${b.isDefault?'def':''}" data-id="${n.id}">
+            <span class="blbl">${esc(b.name)}</span><br>${esc(condSummary(b))}
+          </div>
+          ${chainHtml(b.children, b.id)}
+        </div>`).join('')}
+    </div></div>`;
+}
+function condSummary(b){
+  if (b.isDefault) return '未匹配其他分支时进入';
+  if (!b.rules.length) return '未设置条件';
+  const join = b.logic==='AND'?' 且 ':' 或 ';
+  return b.rules.map(r=>{
+    const f = FIELDS().find(x=>x.key===r.field); const fn = f?f.label:(r.field||'字段');
+    const op = OP_MAP[r.op]||OP_MAP.eq;
+    return fn+' '+op.t+(op.val?(' '+(r.value||'')):'');
+  }).join(join);
+}
+function approverLabel(a){ const k=KIND_MAP[a.kind]; return k.needName?(a.name||k.t):k.t; }
+
+function bindFlow(el){
+  el.querySelectorAll('.node[data-id]').forEach(c=> c.onclick=(e)=>{ if(e.target.dataset.del) return; select(c.dataset.id); });
+  el.querySelectorAll('.branch-head[data-id]').forEach(h=> h.onclick=()=>select(h.dataset.id));
+  el.querySelectorAll('[data-del]').forEach(b=> b.onclick=(e)=>{ e.stopPropagation(); if(confirm('删除该节点？')){ const id=b.dataset.del; removeNode(id); if(selectedId===id) selectedId='start'; commit(); } });
+  el.querySelectorAll('.plus').forEach(p=> p.onclick=(e)=>{ e.stopPropagation(); pending={owner:p.dataset.owner, idx:+p.dataset.idx}; showMenu(e.clientX, e.clientY); });
+}
+
+/* ===========================  ADD MENU  =========================== */
+function showMenu(x,y){ const m=document.getElementById('addMenu'); m.style.left=x+'px'; m.style.top=y+'px'; m.classList.add('show'); }
+function hideMenu(){ document.getElementById('addMenu').classList.remove('show'); }
+document.getElementById('addMenu').querySelectorAll('[data-add]').forEach(b=> b.onclick=()=>addNode(b.dataset.add));
+document.addEventListener('click', e=>{ if(!e.target.closest('#addMenu') && !e.target.classList.contains('plus')) hideMenu(); });
+
+/* ===========================  RIGHT PANEL  =========================== */
+function renderPanel(){
+  const el = document.getElementById('panel');
+  const n = findNode(selectedId);
+  if (!n){ el.innerHTML='<div class="mini">请选择一个节点</div>'; return; }
+  if (n.type==='condition'){ el.innerHTML = condPanel(n); bindCondPanel(el, n); return; }
+
+  // start / approver / cc : name + (approvers) + permission matrix
+  let h = `<h3>节点设置</h3>
+    <div class="prop"><label>节点名称</label><input type="text" id="pName" value="${escA(n.name)}"></div>`;
+  if (n.type==='approver' || n.type==='cc'){
+    const list = n.type==='approver'?n.approvers:n.cc;
+    h += `<div class="prop"><label>${n.type==='approver'?'审批人':'抄送人'}</label>
+      <div class="chips" id="pChips">${list.map((a,i)=>chipHtml(a,i)).join('')||'<span class="mini">尚未添加</span>'}</div>
+      <div class="inline">
+        <select id="pKind">${KINDS.map(k=>`<option value="${k.v}">${k.t}</option>`).join('')}</select>
+        <input type="text" id="pPerson" placeholder="名称" style="flex:1">
+        <button class="btn" id="pAdd">添加</button>
+      </div></div>`;
+    if (n.type==='approver'){
+      h += `<div class="prop"><label>审批方式</label>
+        <select id="pRule">${RULES.map(r=>`<option value="${r.v}" ${n.rule===r.v?'selected':''}>${r.t}</option>`).join('')}</select></div>`;
+    }
+  }
+  h += `<div class="prop"><label>本环节字段权限</label>${permTable(n)}</div>`;
+  el.innerHTML = h;
+  bindNodePanel(el, n);
+}
+function chipHtml(a,i){ const k=KIND_MAP[a.kind]; return `<span class="chip ${k.cls}"><b>${esc(approverLabel(a))}</b><span class="mini">${k.t}</span><span class="x" data-rm="${i}">✕</span></span>`; }
+
+function permTable(n){
+  const fs = FIELDS();
+  let h = `<table class="perm"><thead><tr><th>字段</th>${PERM_COLS.map(c=>`<th>${c.t}</th>`).join('')}</tr></thead><tbody>`;
+  h += `<tr class="all"><td>全选</td>${PERM_COLS.map(c=>`<td><input type="checkbox" data-all="${c.k}"></td>`).join('')}</tr>`;
+  h += fs.map(f=>`<tr><td title="${escA(f.label)}">${esc(f.label)}</td>${
+    PERM_COLS.map(c=>`<td><input type="checkbox" data-pk="${f.key}" data-pc="${c.k}" ${getPerm(n,f.key,c.k)?'checked':''}></td>`).join('')
+  }</tr>`).join('');
+  return h+`</tbody></table>`;
+}
+function getPerm(n,key,col){ const p=n.perms[key]; if(p && col in p) return p[col]; return col==='view'; } // default: viewable
+function setPerm(n,key,col,val){ (n.perms[key]=n.perms[key]||{})[col]=val; }
+
+function bindNodePanel(el, n){
+  const name = el.querySelector('#pName');
+  name.oninput = ()=>{ n.name=name.value; save(); renderFlow(); };
+  // approvers / cc
+  const list = n.type==='approver'?n.approvers:(n.type==='cc'?n.cc:null);
+  if (list){
+    el.querySelector('#pAdd').onclick = ()=>{
+      const kind = el.querySelector('#pKind').value;
+      const person = el.querySelector('#pPerson').value.trim();
+      if (KIND_MAP[kind].needName && !person){ el.querySelector('#pPerson').focus(); return; }
+      list.push({kind, name:person}); commit();
+    };
+    el.querySelectorAll('[data-rm]').forEach(x=> x.onclick=()=>{ list.splice(+x.dataset.rm,1); commit(); });
+    const rule = el.querySelector('#pRule'); if(rule) rule.onchange=()=>{ n.rule=rule.value; commit(); };
+  }
+  // permission checkboxes — update silently (keep scroll/focus), refresh card lazily
+  el.querySelectorAll('[data-pk]').forEach(cb=> cb.onchange=()=>{ setPerm(n, cb.dataset.pk, cb.dataset.pc, cb.checked); save(); });
+  el.querySelectorAll('[data-all]').forEach(cb=> cb.onchange=()=>{
+    const col=cb.dataset.all; FIELDS().forEach(f=> setPerm(n,f.key,col,cb.checked));
+    el.querySelectorAll(`[data-pc="${col}"]`).forEach(x=> x.checked=cb.checked); save();
+  });
+}
+
+/* ---- condition node panel ---- */
+function condPanel(n){
+  let h = `<h3>条件分支设置</h3>
+    <div class="prop"><label>节点名称</label><input type="text" id="pName" value="${escA(n.name)}"></div>`;
+  n.branches.forEach((b,bi)=>{
+    if (b.isDefault){
+      h += `<div class="branch-edit"><div class="behead"><b>${esc(b.name)}</b><span class="mini">默认分支</span></div>
+        <div class="mini">其他条件都不满足时，进入该分支。</div></div>`;
+      return;
+    }
+    h += `<div class="branch-edit" data-bi="${bi}">
+      <div class="behead">
+        <input type="text" class="bName" data-bi="${bi}" value="${escA(b.name)}" style="font-weight:600;border:1px solid var(--border);border-radius:6px;padding:4px 6px;width:55%">
+        <button class="linkbtn" data-rmbranch="${bi}">删除分支</button>
+      </div>
+      <div class="prop" style="margin-bottom:8px"><div class="seg">
+        <button data-logic="AND" data-bi="${bi}" class="${b.logic==='AND'?'on':''}">满足全部</button>
+        <button data-logic="OR"  data-bi="${bi}" class="${b.logic==='OR'?'on':''}">满足任一</button>
+      </div></div>
+      ${b.rules.map((r,ri)=>ruleHtml(bi,ri,r)).join('')}
+      <button class="linkbtn" data-addrule="${bi}">+ 添加条件</button>
+    </div>`;
+  });
+  h += `<button class="btn" id="addBranch" style="width:100%">+ 添加条件分支</button>`;
+  return h;
+}
+function ruleHtml(bi,ri,r){
+  const op = OP_MAP[r.op]||OP_MAP.eq;
+  return `<div class="rule" data-bi="${bi}" data-ri="${ri}">
+    <select class="rField" style="flex:1.2">${FIELDS().map(f=>`<option value="${f.key}" ${r.field===f.key?'selected':''}>${esc(f.label)}</option>`).join('')}</select>
+    <select class="rOp">${OPS.map(o=>`<option value="${o.v}" ${r.op===o.v?'selected':''}>${o.t}</option>`).join('')}</select>
+    ${op.val?`<input type="text" class="rVal" placeholder="值" value="${escA(r.value||'')}" style="flex:1">`:''}
+    <span class="rx" data-rmrule="1">✕</span>
+  </div>`;
+}
+function bindCondPanel(el, n){
+  el.querySelector('#pName').oninput = (e)=>{ n.name=e.target.value; save(); renderFlow(); };
+  el.querySelectorAll('.bName').forEach(inp=> inp.oninput=()=>{ n.branches[+inp.dataset.bi].name=inp.value; save(); renderFlow(); });
+  el.querySelectorAll('[data-logic]').forEach(b=> b.onclick=()=>{ n.branches[+b.dataset.bi].logic=b.dataset.logic; commit(); });
+  el.querySelectorAll('[data-addrule]').forEach(b=> b.onclick=()=>{ n.branches[+b.dataset.addrule].rules.push({field:FIELDS()[0]?.key||'', op:'eq', value:''}); commit(); });
+  el.querySelectorAll('[data-rmbranch]').forEach(b=> b.onclick=()=>{ if(n.branches.filter(x=>!x.isDefault).length<=1){ alert('至少保留一个条件分支'); return; } n.branches.splice(+b.dataset.rmbranch,1); commit(); });
+  el.querySelector('#addBranch').onclick = ()=>{ const di=n.branches.findIndex(x=>x.isDefault); n.branches.splice(di<0?n.branches.length:di,0,{id:uid(),name:'条件'+(n.branches.length),logic:'AND',rules:[],isDefault:false,children:[]}); commit(); };
+  el.querySelectorAll('.rule').forEach(rw=>{
+    const bi=+rw.dataset.bi, ri=+rw.dataset.ri, rule=n.branches[bi].rules[ri];
+    rw.querySelector('.rField').onchange=(e)=>{ rule.field=e.target.value; save(); renderFlow(); };
+    rw.querySelector('.rOp').onchange=(e)=>{ rule.op=e.target.value; commit(); };
+    const v=rw.querySelector('.rVal'); if(v) v.oninput=()=>{ rule.value=v.value; save(); renderFlow(); };
+    rw.querySelector('[data-rmrule]').onclick=()=>{ n.branches[bi].rules.splice(ri,1); commit(); };
+  });
+}
+
+/* ===========================  TOPBAR / JSON  =========================== */
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1400); }
+function openModal(title,text,isImport){
+  document.getElementById('modalTitle').textContent=title;
+  document.getElementById('jsonArea').value=text;
+  document.getElementById('jsonArea').readOnly=!isImport;
+  document.getElementById('jsonApply').style.display=isImport?'':'none';
+  document.getElementById('modalBg').classList.add('show');
+}
+function closeModal(){ document.getElementById('modalBg').classList.remove('show'); }
+
+document.getElementById('flowTitle').oninput=(e)=>{ flow.title=e.target.value; save(); };
+document.getElementById('btnSave').onclick=()=>{ save(); toast('已保存到本地'); };
+document.getElementById('btnExport').onclick=()=>openModal('流程定义 JSON', JSON.stringify(flow,null,2), false);
+document.getElementById('btnImport').onclick=()=>openModal('粘贴流程 JSON 以导入','',true);
+document.getElementById('modalClose').onclick=closeModal;
+document.getElementById('jsonCopy').onclick=()=>navigator.clipboard?.writeText(document.getElementById('jsonArea').value);
+document.getElementById('jsonDownload').onclick=()=>{ const b=new Blob([document.getElementById('jsonArea').value],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=(flow.title||'flow')+'.flow.json'; a.click(); };
+document.getElementById('jsonApply').onclick=()=>{ try{ flow=JSON.parse(document.getElementById('jsonArea').value); selectedId='start'; closeModal(); commit(); toast('导入成功'); }catch(err){ alert('JSON 解析失败：'+err.message); } };
+
+/* ---- utils ---- */
+function esc(s){ return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function escA(s){ return esc(s).replace(/'/g,'&#39;'); }
+
+/* refresh field source when window regains focus (form may have changed) */
+window.addEventListener('focus', ()=>{ FIELDSRC=loadFormFields(); renderFlow(); if(findNode(selectedId)) renderPanel(); });
+
+renderFlow(); renderPanel();
+</script>
+</body>
+</html>
