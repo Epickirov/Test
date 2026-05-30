@@ -195,7 +195,7 @@ const OPS = [
   {v:'contains',t:'包含',val:true},{v:'empty',t:'为空',val:false},{v:'notempty',t:'不为空',val:false},
 ];
 const OP_MAP = Object.fromEntries(OPS.map(o=>[o.v,o]));
-const PERM_COLS = [{k:'view',t:'查看'},{k:'edit',t:'编辑'},{k:'required',t:'必填'},{k:'hidden',t:'隐藏'}];
+const PERM_COLS = [{k:'view',t:'查看'},{k:'edit',t:'编辑'},{k:'required',t:'必填'},{k:'hidden',t:'隐藏'},{k:'brief',t:'简报'}];
 
 /* ---- state ---- */
 const uid = () => 'n'+Math.random().toString(36).slice(2,8);
@@ -355,7 +355,7 @@ function renderPanel(){
         <select id="pRule">${RULES.map(r=>`<option value="${r.v}" ${n.rule===r.v?'selected':''}>${r.t}</option>`).join('')}</select></div>`;
     }
   }
-  h += `<div class="prop"><label>本环节字段权限</label>${permTable(n)}</div>`;
+  h += `<div class="prop"><label>本环节字段权限</label>${permTable(n)}<div class="hint">「简报」列勾选的字段，会显示在审批人「待办」的简报卡片上，便于一眼审批、批量处理。</div></div>`;
   el.innerHTML = h;
   bindNodePanel(el, n);
 }

@@ -100,6 +100,24 @@
   .toast.show{opacity:.95}
   .banner{background:var(--accent-weak);color:var(--accent);border-radius:10px;padding:10px 12px;font-size:13px;display:flex;align-items:center;gap:8px;margin-bottom:12px}
   .banner button{margin-left:auto;background:var(--accent);color:#fff;border:0;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer}
+  /* 待办 digest inbox */
+  .todo-head{display:flex;align-items:center;justify-content:space-between;margin:2px 2px 10px}
+  .chiptog{border:1px solid var(--accent);background:#fff;color:var(--accent);border-radius:16px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer}
+  .chiptog.on{background:var(--accent);color:#fff}
+  .tcard{background:#fff;border-radius:12px;padding:12px;margin-bottom:10px;box-shadow:0 1px 2px rgba(0,0,0,.05);cursor:pointer}
+  .tcard-h{display:flex;align-items:center;gap:10px}
+  .tcard-h .t{font-weight:600}
+  .tsel{display:flex} .tsel input{width:20px;height:20px}
+  .dgs{margin:10px 0 8px;display:grid;grid-template-columns:1fr 1fr;gap:7px 12px}
+  .dg{display:flex;flex-direction:column;min-width:0}
+  .dg .k{font-size:11px;color:var(--muted)}
+  .dg .v{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tcard-f{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--border);padding-top:9px}
+  .tactions{display:flex;gap:8px}
+  .btn.sm{flex:0 0 auto;padding:8px 18px;font-size:13px}
+  .batchbar{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;padding:12px;margin:6px -12px -16px;box-shadow:0 -2px 10px rgba(0,0,0,.06)}
+  .batchbar span{font-weight:700}
+  .batchbar .btn{flex:1}
 </style>
 </head>
 <body>
@@ -154,6 +172,8 @@ function permOf(node,key){ return (node && node.perms && node.perms[key]) || {};
 function isHidden(node,key){ return !!permOf(node,key).hidden; }
 function canEdit(node,key){ const p=permOf(node,key); if(p.hidden) return false; if(p.edit!==undefined) return p.edit; return node && node.type==='start'; }
 function isReq(node,key,field){ const p=permOf(node,key); return !!p.required || !!(field&&field.required); }
+function isBrief(node,key){ return !!permOf(node,key).brief; }
+function digestFields(node){ const fs=dataFields().filter(f=>!isHidden(node,f.key)); const b=fs.filter(f=>isBrief(node,f.key)); return (b.length?b:fs).slice(0,4); }
 
 /* ---------- approver labels ---------- */
 const KIND = {user:'人员',role:'角色',dept:'部门',mgr:'发起人主管',self:'发起人本人'};
@@ -278,6 +298,7 @@ function setBadge(id,n){ const e=document.getElementById(id); if(!e) return; e.t
 
 /* =========================  VIEWS  ========================= */
 let tab='workbench';
+let batch=false; const batchSel=new Set();   // 待办 batch-approval mode
 const TAB_TITLE={workbench:'工作台',todo:'待办审批',msg:'消息中心',me:'我的'};
 function render(){
   document.getElementById('barTitle').textContent=TAB_TITLE[tab];
@@ -299,17 +320,28 @@ function vWorkbench(){
 }
 function vTodo(){
   const ts=pendingTasks();
-  if(!ts.length) return `<div class="empty"><div class="big">✅</div><p>暂无待办审批</p></div>`;
-  return `<div class="card">${ts.map(i=>{
-    const st=currentStep(i);
-    return `<div class="li" data-task="${i.id}">
-      <div class="avt" style="background:var(--amber)">审</div>
-      <div class="grow"><div class="t ellipsis">${esc(i.title)}</div>
-        <div class="s ellipsis">环节「${esc(st.name)}」· ${esc(st.assignees.join('、')||'未指定')} · ${RULE[st.rule]||''}</div>
-        <div class="s">发起人 ${esc(i.initiator)}</div></div>
-      <div class="time">${rel(i.createdAt)}</div></div>`;
-  }).join('')}</div>`;
+  if(!ts.length){ batch=false; batchSel.clear(); return `<div class="empty"><div class="big">✅</div><p>暂无待办审批</p></div>`; }
+  const groups={}; ts.forEach(i=>{ (groups[i.title]=groups[i.title]||[]).push(i); });
+  const head=`<div class="todo-head"><div class="muted">${ts.length} 项待办 · 仅显示关键信息</div>
+    <button class="chiptog ${batch?'on':''}" id="batchTog">${batch?'退出批量':'批量审批'}</button></div>`;
+  const body=Object.entries(groups).map(([title,items])=>
+    `<div class="sec-title">${esc(title)} · ${items.length}</div>${items.map(taskCard).join('')}`).join('');
+  const bar=(batch&&batchSel.size)?`<div class="batchbar"><span>已选 ${batchSel.size}</span>
+    <button class="btn danger" id="batchReject">批量驳回</button><button class="btn primary" id="batchApprove">批量通过</button></div>`:'';
+  return head+body+bar;
 }
+function taskCard(i){
+  const st=currentStep(i);
+  const dg=digestFields(st).map(f=>`<div class="dg"><span class="k">${esc(f.label)}</span><span class="v">${fmtVal(f,i.data[f.key])}</span></div>`).join('');
+  const sel=batch?`<label class="tsel"><input type="checkbox" class="tcheck" data-id="${i.id}" ${batchSel.has(i.id)?'checked':''}></label>`:'';
+  const actions=batch?'':`<div class="tactions"><button class="btn danger sm" data-rej="${i.id}">驳回</button><button class="btn primary sm" data-app="${i.id}">同意</button></div>`;
+  return `<div class="tcard" data-open="${i.id}">
+    <div class="tcard-h">${sel}<div class="grow"><div class="t ellipsis">${esc(i.title)}</div><div class="s ellipsis">发起人 ${esc(i.initiator)} · ${rel(i.createdAt)}</div></div><span class="pill run">${esc(st.name)}</span></div>
+    <div class="dgs">${dg||'<span class="muted" style="font-size:12px">该环节未设置「简报」字段，可在审批设计器中勾选</span>'}</div>
+    <div class="tcard-f"><div class="muted" style="font-size:12px">审批人 ${esc(st.assignees.join('、')||'未指定')}${st.rule?' · '+RULE[st.rule]:''}</div>${actions}</div>
+  </div>`;
+}
+function fmtVal(f,v){ let s=Array.isArray(v)?v.join('、'):f.type==='switch'?(v?'是':'否'):f.type==='rating'?'★'.repeat(Number(v||0)):v; return (s==null||s==='')?'<span class="muted">—</span>':esc(s); }
 function vMsg(){
   const banner = (('Notification' in window)&&Notification.permission!=='granted')
     ? `<div class="banner">🔔 开启系统通知，待办与消息实时提醒<button id="enaNotif">开启</button></div>`:'';
@@ -351,9 +383,43 @@ function instLi(i){
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">${st}<div class="time">${rel(i.createdAt)}</div></div></div>`;
 }
 
+/* quick + batch approval (no need to open each slip) */
+function missingReq(inst){ const node=currentStep(inst); return dataFields().find(f=>!isHidden(node,f.key)&&canEdit(node,f.key)&&isReq(node,f.key,f)&&empty(inst.data[f.key])); }
+function quickApprove(id){
+  const inst=instances.find(i=>i.id===id); if(!inst||!currentStep(inst)||currentStep(inst).status!=='pending') return;
+  const miss=missingReq(inst); if(miss){ toast('需补充：'+miss.label); openTask(id); return; }
+  approve(inst,{},''); render(); toast('已同意');
+}
+function quickReject(id){
+  const inst=instances.find(i=>i.id===id); if(!inst) return;
+  const r=prompt('驳回原因（选填）',''); if(r===null) return;
+  reject(inst, r||''); render(); toast('已驳回');
+}
+function batchApprove(){
+  let done=0, skip=0;
+  [...batchSel].forEach(id=>{ const inst=instances.find(i=>i.id===id);
+    if(!inst||!currentStep(inst)||currentStep(inst).status!=='pending') return;
+    if(missingReq(inst)){ skip++; return; }
+    approve(inst,{},''); done++; });
+  batchSel.clear(); render(); toast(`已通过 ${done} 项`+(skip?` · ${skip} 项需补充信息已跳过`:''));
+}
+function batchReject(){
+  if(!batchSel.size) return;
+  const r=prompt(`批量驳回 ${batchSel.size} 项 · 原因（选填）`,''); if(r===null) return;
+  let done=0; [...batchSel].forEach(id=>{ const inst=instances.find(i=>i.id===id);
+    if(inst&&currentStep(inst)&&currentStep(inst).status==='pending'){ reject(inst, r||''); done++; } });
+  batchSel.clear(); render(); toast(`已驳回 ${done} 项`);
+}
+
 function bindView(v){
   const fill=v.querySelector('[data-act="fill"]'); if(fill) fill.onclick=openFill;
-  v.querySelectorAll('[data-task]').forEach(e=>e.onclick=()=>openTask(e.dataset.task));
+  // 待办 digest cards: tap body -> detail; inline / batch quick actions
+  bindIf(v,'#batchTog',()=>{ batch=!batch; batchSel.clear(); render(); });
+  v.querySelectorAll('.tcard').forEach(c=>c.onclick=e=>{ if(e.target.closest('button')||e.target.closest('input')||e.target.closest('label')) return; openTask(c.dataset.open); });
+  v.querySelectorAll('.tcheck').forEach(cb=>cb.onclick=e=>{ e.stopPropagation(); cb.checked?batchSel.add(cb.dataset.id):batchSel.delete(cb.dataset.id); render(); });
+  v.querySelectorAll('[data-app]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); quickApprove(b.dataset.app); });
+  v.querySelectorAll('[data-rej]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); quickReject(b.dataset.rej); });
+  bindIf(v,'#batchApprove',batchApprove); bindIf(v,'#batchReject',batchReject);
   v.querySelectorAll('[data-inst]').forEach(e=>e.onclick=()=>openInstance(e.dataset.inst));
   v.querySelectorAll('[data-notif]').forEach(e=>e.onclick=()=>openNotif(e.dataset.notif));
   bindIf(v,'#enaNotif',enableNotifications); bindIf(v,'#enaNotif2',enableNotifications);
