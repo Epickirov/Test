@@ -1,50 +1,49 @@
 # AR Glasses → Qwen → Live Price Comparison (scaffold)
 
-A runnable skeleton for the loop:
+Text-search price comparison, matching the proven pattern from the other app:
+**concatenate the `checks` and `specifications` fields and use that as the
+Alibaba search query** (not image search).
 
 ```
-glasses camera frame
-      │
-      ▼
-qwen_vision.identify_product()     ← Qwen-VL: "what is this product?"
-      │
-      ▼
-agent.compare_prices_for_image()   ← Qwen function-calling orchestration
-      │
-      ▼
-price_lookup.lookup_prices()       ← THE LIVE PRICE SOURCE (currently a stub)
-      │
-      ▼
-HUD text for the glasses
+checks field + specifications field
+        │  concatenate (deterministic, in code — query.build_query)
+        ▼
+   search query  ──►  price_lookup.lookup_prices()   ← LIVE Alibaba search
+        │
+        ▼
+   Qwen  ──►  rank / summarise listings into one HUD line
 ```
 
-## The one rule this scaffold enforces
+## Two rules this scaffold enforces
 
-**The LLM never invents prices.** Qwen identifies the product and decides when
-to fetch prices, but every price shown comes from `lookup_prices()` — a real
-tool call to an authoritative source. If you let the model recall prices from
-its weights, they are stale/hallucinated, not "live."
+1. **The LLM never builds the query.** Concatenating the two fields is plain
+   code (`query.py`). Deterministic, matching the other app.
+2. **The LLM never invents prices.** Every price comes from
+   `lookup_prices()`; Qwen only summarises the listings it's handed.
 
 ## Where your live app plugs in
 
-`price_lookup.lookup_prices()` is a **stub** returning obviously-fake data so
-the loop runs without credentials. Replace its body with your real live price
-source (your existing Qwen-based app, or a direct Taobao Open Platform /
-淘宝客 affiliate API call). That credentialed access is the part Qwen does
-*not* grant you — it lives in this function.
+`price_lookup.lookup_prices(query)` is a **stub** returning obviously-fake data
+so the loop runs without credentials. Replace its body with your existing live
+Alibaba search. It already takes the concatenated text query — wire it straight
+in.
+
+## Files
+
+| File | Role |
+|------|------|
+| `query.py` | `checks` + `specifications` → search query (deterministic) |
+| `price_lookup.py` | query → live Alibaba listings (**plug your app in here**) |
+| `agent.py` | orchestration + Qwen-ranked HUD output |
+| `qwen_vision.py` | *optional* — derive the field text from a glasses frame |
 
 ## Run it
 
 ```bash
 pip install -r requirements.txt
 export DASHSCOPE_API_KEY=sk-...        # Alibaba Cloud Model Studio key
-python agent.py path/or/url/to/item.jpg
+python agent.py "<checks text>" "<specifications text>"
 ```
 
-## Files
-
-| File | Stage |
-|------|-------|
-| `qwen_vision.py` | Image → product name (Qwen-VL) |
-| `price_lookup.py` | Product name → live prices (**plug in your app here**) |
-| `agent.py` | Orchestration + HUD output (Qwen function-calling) |
+For the optional glasses path, call `qwen_vision.fields_from_frame(image)` to
+suggest the two fields, then pass them into `agent.compare_prices(...)`.

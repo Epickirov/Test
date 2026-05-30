@@ -1,52 +1,48 @@
-"""Stage 1: turn a camera frame into a product identity using Qwen-VL.
+"""OPTIONAL helper: derive the checks / specifications text from a glasses frame.
 
-This is the part Qwen genuinely excels at: looking at an arbitrary image
-(a frame from the AR glasses' camera) and describing *what the product is*.
-It does NOT return prices -- pricing comes from a separate authoritative
-lookup (see price_lookup.py). Keeping these separate is deliberate: an LLM
-must not be the source of "live" prices.
+The price search itself is TEXT-based (see query.py / price_lookup.py), not
+image search. But on AR glasses the user may not type the fields, so this
+optionally uses Qwen-VL to look at a camera frame and *suggest* text to drop
+into the `checks` and `specifications` fields. The Alibaba search still
+receives plain text -- the image never leaves this step.
+
+Skip this module entirely if the fields are typed or dictated.
 """
 
 from __future__ import annotations
 
+import json
 import os
+
 from dashscope import MultiModalConversation
 
-# Qwen-VL model. Swap for the latest vision model you have access to.
 VISION_MODEL = os.environ.get("QWEN_VL_MODEL", "qwen-vl-max")
 
 _PROMPT = (
-    "You are the product-recognition step of a price-comparison tool. "
-    "Look at the image and identify the single main retail product. "
-    "Respond with a short, search-friendly product name only (brand + model "
-    "+ type if visible). Do NOT guess a price. If you cannot tell what it is, "
-    "respond with the literal word UNKNOWN."
+    "Look at the product in the image. Return STRICT JSON with two keys: "
+    '"checks" (the product name: brand + model + type) and "specifications" '
+    "(any visible specs: size, capacity, colour, material). Values are plain "
+    "text. Do not include prices. If unsure, use empty strings."
 )
 
 
-def identify_product(image_path_or_url: str) -> str:
-    """Return a short, search-friendly product name for the item in the image.
-
-    `image_path_or_url` may be a local file path (use a file:// URL) or a
-    public https URL. Returns "UNKNOWN" if the model can't identify the item.
-    """
+def fields_from_frame(image_path_or_url: str) -> tuple[str, str]:
+    """Return (checks, specifications) text suggested from the image."""
     messages = [
         {
             "role": "user",
-            "content": [
-                {"image": image_path_or_url},
-                {"text": _PROMPT},
-            ],
+            "content": [{"image": image_path_or_url}, {"text": _PROMPT}],
         }
     ]
-
     response = MultiModalConversation.call(
         model=VISION_MODEL,
         messages=messages,
         api_key=os.environ["DASHSCOPE_API_KEY"],
     )
-
-    # MultiModalConversation returns content as a list of {"text": ...} parts.
     content = response["output"]["choices"][0]["message"]["content"]
     text = "".join(part.get("text", "") for part in content).strip()
-    return text or "UNKNOWN"
+    try:
+        data = json.loads(text)
+        return str(data.get("checks", "")), str(data.get("specifications", ""))
+    except (json.JSONDecodeError, AttributeError):
+        return "", ""
