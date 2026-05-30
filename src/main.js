@@ -84,6 +84,7 @@ class GreenhouseSimulation {
                 this.thermalField.init();
                 this.smokeVolume.init();
             },
+            onStreaklineChange: () => this.streaklines.init(),
         });
     }
 
@@ -188,6 +189,15 @@ class GreenhouseSimulation {
         humidity.addEventListener('input', (e) => {
             config.airHumidity = Number(e.target.value);
             document.getElementById('ctl-humidity-val').textContent = e.target.value;
+            this._refreshGui();
+        });
+
+        const padWater = document.getElementById('ctl-padwater');
+        padWater.value = config.padWaterTemp;
+        document.getElementById('ctl-padwater-val').textContent = config.padWaterTemp;
+        padWater.addEventListener('input', (e) => {
+            config.padWaterTemp = Number(e.target.value);
+            document.getElementById('ctl-padwater-val').textContent = e.target.value;
             this._refreshGui();
         });
     }

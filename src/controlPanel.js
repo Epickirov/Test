@@ -13,7 +13,7 @@ import { config, MAX_TARGET_PARTICLES } from './config.js';
  * @param {() => void} callbacks.onResolutionChange   - grid resolution changed
  * @returns {GUI}
  */
-export function createControlPanel({ onStructureChange, onParticleCountChange, onResolutionChange }) {
+export function createControlPanel({ onStructureChange, onParticleCountChange, onResolutionChange, onStreaklineChange }) {
     // Narrower panel on small screens so it doesn't dominate a phone display.
     const width = window.innerWidth <= 768 ? Math.min(260, window.innerWidth - 24) : 300;
     const gui = new GUI({ title: 'Simulation Parameters', width });
@@ -25,7 +25,7 @@ export function createControlPanel({ onStructureChange, onParticleCountChange, o
     struct.add(config, 'greenhouseHeight', 2, 6).name('Height (m)').onFinishChange(onStructureChange);
 
     const equip = gui.addFolder('HVAC Equipment');
-    equip.add(config, 'fanCount', 1, 8, 1).name('Fan Count').onFinishChange(onStructureChange);
+    equip.add(config, 'fanCount', 1, 16, 1).name('Fan Count').onFinishChange(onStructureChange);
     equip.add(config, 'fanSpeed', 0, 1).name('Fan Speed');
     equip.add(config, 'coolingPadHeight', 0.5, 3.5).name('Pad Height (m)').onFinishChange(onStructureChange);
     equip.add(config, 'coolingPadElevation', 0, 2.0).name('Pad Elevation (m)').onFinishChange(onStructureChange);
@@ -52,9 +52,10 @@ export function createControlPanel({ onStructureChange, onParticleCountChange, o
     sim.add(config, 'fluidResolution', { 'Low (24)': 24, 'Med (32)': 32, 'High (48)': 48 })
         .name('Field Resolution').onFinishChange(onResolutionChange);
 
-    const vis = gui.addFolder('Smoke');
-    vis.add(config, 'smokeSize', 0.3, 3.0).name('Puff Size');
-    vis.add(config, 'smokeOpacity', 0.1, 1.0).name('Opacity');
+    const vis = gui.addFolder('Airflow Viz');
+    vis.add(config, 'smokeSize', 0.3, 3.0).name('Smoke Density');
+    vis.add(config, 'smokeOpacity', 0.1, 1.0).name('Smoke Opacity');
+    vis.add(config, 'streaklineDensity', 0.3, 2.5).name('Streakline Density').onFinishChange(onStreaklineChange);
 
     return gui;
 }

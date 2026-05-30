@@ -30,8 +30,11 @@ export class EvaporativeCooling {
     /**
      * Update the cached wet-bulb, pad effectiveness and pad outlet temperature.
      *
-     * Pad outlet = T_db − ε·(T_db − T_wb). Effectiveness is derated at very
-     * high humidity (reduced driving force / wet-pad fouling).
+     * Pad outlet = T_db − ε·(T_db − T_sink). Evaporation can cool the air to the
+     * wet-bulb temperature; if the supply water is colder than the wet-bulb it
+     * adds sensible cooling and the air approaches the water temperature, so the
+     * sink is the colder of the two. Effectiveness is derated at very high
+     * humidity (reduced driving force / wet-pad fouling).
      *
      * @param {number} tDryBulb - ambient dry-bulb temperature (°C)
      * @param {number} rh - relative humidity (%)
@@ -43,7 +46,8 @@ export class EvaporativeCooling {
         const rhDerating = THREE.MathUtils.clamp(1.0 - Math.max(0, (rh - 70) / 60), 0.5, 1.0);
         this.effectiveness = config.padEffectiveness * rhDerating;
 
-        this.padOutletTemp = tDryBulb - this.effectiveness * (tDryBulb - this.wetBulbTemp);
+        const sink = Math.min(this.wetBulbTemp, config.padWaterTemp);
+        this.padOutletTemp = tDryBulb - this.effectiveness * (tDryBulb - sink);
         return this.padOutletTemp;
     }
 }

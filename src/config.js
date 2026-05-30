@@ -18,6 +18,7 @@ export const config = {
     coolingPadHeight: 1.7,
     coolingPadElevation: 0.2,
     padEffectiveness: 0.85,        // typical for a well-maintained cellulose pad
+    padWaterTemp: 20,              // pad supply-water temperature (°C); colder water → colder air
 
     // ---- Environment ----
     outsideTemp: 32,               // peak daytime (°C)
@@ -59,6 +60,7 @@ export const config = {
     smokeSize: 1.4,                // smoke puff size (sprite fallback) / density scale (volumetric)
     smokeOpacity: 0.7,
     showStreaklines: false,        // wind-tunnel streakline overlay (independent of particles/smoke)
+    streaklineDensity: 1.0,        // how densely the streakline grid fills the greenhouse
 };
 
 /**

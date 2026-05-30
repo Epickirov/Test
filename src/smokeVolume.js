@@ -16,6 +16,8 @@
 import * as THREE from 'three';
 import { config } from './config.js';
 
+const SMOKE_BASE_FILL = 0.4; // baseline density so the whole greenhouse holds visible (translucent) smoke
+
 const VERTEX_SHADER = /* glsl */`
 in vec3 position;
 uniform mat4 modelMatrix;
@@ -114,7 +116,7 @@ void main() {
                 for (int j = 0; j < 5; j++) { lp += uSunDir * 0.09; shadow += densityAt(clamp(lp, 0.0, 1.0)) * 0.09; }
                 float light = exp(-shadow * 6.0);
 
-                vec3 tint = mix(vec3(0.90, 0.93, 1.0), tempColor(tNorm), 0.5); // light smoke, tinted by temperature
+                vec3 tint = mix(vec3(0.85, 0.88, 0.95), tempColor(tNorm), 0.75); // smoke coloured mostly by temperature
                 vec3 glow = tempColor(tNorm) * uEmission * smoothstep(0.5, 1.0, tNorm);
                 vec3 col = tint * (0.5 + 0.6 * light) + glow;
 
@@ -166,8 +168,8 @@ export class SmokeVolume {
                 uCameraPos: { value: new THREE.Vector3() },
                 uSunDir: { value: new THREE.Vector3(0, 1, 0) },
                 uTime: { value: 0 },
-                uDensity: { value: 1.5 },
-                uAbsorption: { value: 7.0 },
+                uDensity: { value: 1.2 },
+                uAbsorption: { value: 2.0 }, // low enough that the volume stays translucent (gradient visible)
                 uEmission: { value: 0.9 },
                 uOpacity: { value: config.smokeOpacity },
                 uNoiseScale: { value: 6.0 },
@@ -284,12 +286,12 @@ export class SmokeVolume {
                     const wz = (z + 0.5) / rz * L - hl;
 
                     const v = this.thermal.velocityAt(wx, wy, wz);
-                    let d = this._sampleDensity(wx - v[0] * stepDt, wy - v[1] * stepDt, wz - v[2] * stepDt);
-                    d *= 0.997; // slow dissipation so the plume persists and builds up
-
-                    // Inject mist where cooled, humid air enters at the pad.
+                    let d = this._sampleDensity(wx - v[0] * stepDt, wy - v[1] * stepDt, wz - v[2] * stepDt) * 0.985;
+                    // Hard floor so the entire greenhouse always holds visible smoke;
+                    // the advected pad plume rides on top of it for flowing structure.
+                    if (d < SMOKE_BASE_FILL) d = SMOKE_BASE_FILL;
                     if (z <= 1 && wy >= padBottom && wy <= padTop && Math.abs(wx) < hw * 0.9) {
-                        d = Math.max(d, 1.0);
+                        d = Math.max(d, 1.3); // denser fresh mist at the pad inlet
                     }
                     dst[this._idx(x, y, z)] = d > 1.5 ? 1.5 : d;
                 }
