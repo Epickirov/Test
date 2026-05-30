@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>数据管理 · Submissions</title>
+<style>
+  :root{--accent:#1677ff;--accent-weak:#e8f1ff;--bg:#f5f6f8;--panel:#fff;--border:#e6e8eb;
+    --text:#1f2329;--muted:#8a8f99;--danger:#e5484d;--green:#0a8f4e;--amber:#d48806;--radius:8px}
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);background:var(--bg);font-size:13px}
+  .app{display:flex;flex-direction:column;height:100vh}
+  .topbar{display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--border);flex:0 0 auto}
+  .topbar .logo{font-weight:700;color:var(--accent);font-size:15px}
+  .topbar .spacer{flex:1}
+  .btn{border:1px solid var(--border);background:#fff;color:var(--text);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-block}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff} .btn.primary:hover{opacity:.92;color:#fff}
+  .btn.danger{color:var(--danger);border-color:#f0c4c6} .btn.danger:hover{background:#fde8e8}
+  .btn.sm{padding:3px 8px;font-size:12px}
+  .toolbar{display:flex;align-items:center;gap:10px;padding:12px 16px;flex-wrap:wrap}
+  .stats{display:flex;gap:8px}
+  .stat{background:#fff;border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer}
+  .stat b{font-size:16px;margin-right:5px} .stat.on{border-color:var(--accent);color:var(--accent);background:var(--accent-weak)}
+  .stat .run{color:var(--amber)} .stat .ok{color:var(--green)} .stat .no{color:var(--danger)}
+  .search{padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;min-width:220px}
+  .wrap{flex:1;overflow:auto;padding:0 16px 16px}
+  table.grid{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  table.grid th,table.grid td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+  table.grid thead th{background:#fafbfc;color:var(--muted);font-weight:600;position:sticky;top:0;z-index:1}
+  table.grid tbody tr:hover{background:#fafcff;cursor:pointer}
+  table.grid td.actions{white-space:nowrap}
+  .pill{display:inline-block;border-radius:10px;padding:1px 9px;font-size:11px;font-weight:600}
+  .pill.run{background:#fff7e6;color:var(--amber)} .pill.ok{background:#eaf7ee;color:var(--green)} .pill.no{background:#fde8e8;color:var(--danger)}
+  .muted{color:var(--muted)}
+  .empty{text-align:center;color:var(--muted);padding:80px 16px} .empty .big{font-size:46px;opacity:.4} .empty a{color:var(--accent)}
+  .foot{padding:8px 16px;color:var(--muted);border-top:1px solid var(--border);background:var(--panel)}
+  /* drawer */
+  .drawer-bg{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;z-index:40}
+  .drawer-bg.show{display:block}
+  .drawer{position:fixed;top:0;right:0;height:100%;width:480px;max-width:94vw;background:#fff;transform:translateX(100%);transition:transform .25s;z-index:41;display:flex;flex-direction:column}
+  .drawer.show{transform:translateX(0)}
+  .drawer header{height:52px;flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:0 16px;border-bottom:1px solid var(--border);font-weight:600}
+  .drawer header .spacer{flex:1}
+  .drawer .dbody{flex:1;overflow:auto;padding:16px}
+  .drawer .dfoot{flex:0 0 auto;display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;border-top:1px solid var(--border)}
+  .sec{font-size:12px;color:var(--muted);font-weight:600;margin:4px 0 8px}
+  .field{margin-bottom:14px} .field>label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+  .field .req{color:var(--danger);margin-right:2px}
+  .fi{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;background:#fff}
+  textarea.fi{min-height:64px;resize:vertical}
+  .fv{padding:7px 0;border-bottom:1px dashed var(--border);font-size:13px}
+  .opts{display:flex;flex-wrap:wrap;gap:10px} .opt{display:flex;align-items:center;gap:6px}
+  .sw{position:relative;display:inline-block;width:44px;height:24px}.sw input{display:none}
+  .sw span{position:absolute;inset:0;background:#d9d9d9;border-radius:13px;transition:.2s}.sw span::after{content:"";position:absolute;left:3px;top:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:.2s}
+  .sw input:checked+span{background:var(--accent)}.sw input:checked+span::after{transform:translateX(20px)}
+  .stars{font-size:20px;color:#d9d9d9;letter-spacing:3px}.stars span{cursor:pointer}.stars span.on{color:#f5a623}
+  /* timeline */
+  .tl{position:relative;padding-left:20px;margin-top:4px}
+  .tl .step{position:relative;padding-bottom:14px}
+  .tl .step::before{content:"";position:absolute;left:-14px;top:2px;width:10px;height:10px;border-radius:50%;background:#d9d9d9;border:2px solid #fff}
+  .tl .step.ok::before{background:var(--green)}.tl .step.no::before{background:var(--danger)}.tl .step.cur::before{background:var(--accent)}.tl .step.cc::before{background:var(--amber)}
+  .tl::after{content:"";position:absolute;left:-10px;top:4px;bottom:8px;width:2px;background:var(--border)}
+  .tl .nm{font-weight:600;font-size:12px}.tl .meta{color:var(--muted);font-size:12px}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1f2329;color:#fff;padding:9px 16px;border-radius:8px;opacity:0;transition:.25s;pointer-events:none;z-index:90}.toast.show{opacity:.95}
+  /* modal */
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;z-index:80}.modal-bg.show{display:flex}
+  .modal{background:#fff;border-radius:10px;width:640px;max-width:92vw;max-height:84vh;display:flex;flex-direction:column;overflow:hidden}
+  .modal header{padding:14px 18px;border-bottom:1px solid var(--border);font-weight:600;display:flex}.modal header .spacer{flex:1}
+  .modal .mbody{padding:16px 18px;overflow:auto}.modal textarea{width:100%;height:340px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;border:1px solid var(--border);border-radius:6px;padding:10px}
+  .modal footer{padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <span class="logo">数据管理</span>
+    <span class="muted" id="formName"></span>
+    <a class="btn" href="index.html">表单设计器</a>
+    <a class="btn" href="flow.html">审批流程</a>
+    <a class="btn" href="app.html">手机端</a>
+    <span class="spacer"></span>
+    <button class="btn" id="btnExportCsv">导出 CSV</button>
+    <button class="btn" id="btnExportJson">导出 JSON</button>
+    <button class="btn danger" id="btnBulkDel" disabled>删除所选</button>
+  </div>
+
+  <div class="toolbar">
+    <div class="stats" id="stats"></div>
+    <span class="spacer" style="flex:1"></span>
+    <input class="search" id="search" placeholder="搜索字段内容 / 发起人…" />
+  </div>
+
+  <div class="wrap" id="wrap"></div>
+  <div class="foot" id="foot"></div>
+</div>
+
+<div class="drawer-bg" id="drawerBg"></div>
+<div class="drawer" id="drawer">
+  <header><span id="drawerTitle"></span><span class="spacer"></span><button class="btn sm" id="drawerClose">关闭</button></header>
+  <div class="dbody" id="drawerBody"></div>
+  <div class="dfoot" id="drawerFoot"></div>
+</div>
+
+<div class="modal-bg" id="modalBg"><div class="modal">
+  <header><span id="modalTitle">导出</span><span class="spacer"></span><button class="btn sm" id="modalClose">关闭</button></header>
+  <div class="mbody"><textarea id="jsonArea" spellcheck="false" readonly></textarea></div>
+  <footer><button class="btn" id="jsonCopy">复制</button><button class="btn primary" id="jsonDownload">下载</button></footer>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================================
+   数据管理 / Submissions management table (desktop).
+   Lists every submitted instance (shared localStorage with the mobile app),
+   with view / edit / delete / resubmit-for-approval, filtering and export.
+   The flow-eval + lifecycle helpers mirror app.html so routing stays identical.
+   ========================================================================= */
+const LS={form:'hdy.formbuilder.v1',flow:'hdy.flow.v1',inst:'hdy.instances.v1',notif:'hdy.notif.v1',user:'hdy.user.v1'};
+const read=(k,f)=>{try{const v=JSON.parse(localStorage.getItem(k));return v==null?f:v;}catch(e){return f;}};
+const write=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
+let FORM=read(LS.form,null), FLOW=read(LS.flow,null);
+let instances=read(LS.inst,[]), notifs=read(LS.notif,[]), me=read(LS.user,'管理员');
+
+const LAYOUT=['subtable','columns','group','divider','static_text','tabs','collapse','steps'];
+const dataFields=()=>FORM&&Array.isArray(FORM.fields)?FORM.fields.filter(f=>!LAYOUT.includes(f.type)):[];
+const colFields=()=>dataFields().slice(0,5);
+
+/* ---- perms / flow eval (identical behavior to app.html) ---- */
+function permOf(n,k){return (n&&n.perms&&n.perms[k])||{};}
+function isHidden(n,k){return !!permOf(n,k).hidden;}
+function isReq(n,k,f){const p=permOf(n,k);return !!p.required||!!(f&&f.required);}
+function num(x){const n=parseFloat(x);return isNaN(n)?NaN:n;}
+function evalRule(r,d){const v=d[r.field],t=r.value;switch(r.op){
+  case 'empty':return v==null||v===''||(Array.isArray(v)&&!v.length);
+  case 'notempty':return !(v==null||v===''||(Array.isArray(v)&&!v.length));
+  case 'eq':return String(v??'')===String(t??'');case 'ne':return String(v??'')!==String(t??'');
+  case 'contains':return String(v??'').includes(String(t??''));
+  case 'gt':return num(v)>num(t);case 'lt':return num(v)<num(t);
+  case 'gte':return num(v)>=num(t);case 'lte':return num(v)<=num(t);}return false;}
+function branchMatch(b,d){if(b.isDefault)return false;if(!b.rules||!b.rules.length)return false;const r=b.rules.map(x=>evalRule(x,d));return b.logic==='OR'?r.some(Boolean):r.every(Boolean);}
+function pickBranch(n,d){for(const b of n.branches){if(branchMatch(b,d))return b;}return n.branches.find(b=>b.isDefault)||null;}
+const KIND={user:'人员',role:'角色',dept:'部门',mgr:'发起人主管',self:'发起人本人'};
+const approverLabel=a=>(a.kind==='mgr'||a.kind==='self')?KIND[a.kind]:(a.name||KIND[a.kind]||'未命名');
+function snapStep(kind,node){const list=kind==='approval'?(node.approvers||[]):(node.cc||[]);return {kind,name:node.name,rule:node.rule||null,perms:node.perms||{},assignees:list.map(approverLabel),status:kind==='approval'?'waiting':'cc'};}
+function compileSteps(flow,d){const steps=[];(function walk(chain){if(!chain)return;for(const n of chain){
+  if(n.type==='approver')steps.push(snapStep('approval',n));
+  else if(n.type==='cc')steps.push(snapStep('cc',n));
+  else if(n.type==='condition'){const b=pickBranch(n,d);if(b){steps.push({kind:'branch',name:n.name+' · '+(b.name||'')});walk(b.children);}}
+}})(flow?flow.root:[]);return steps;}
+function currentStep(i){return i.steps[i.cursor];}
+function pushNotif(n){notifs.unshift({id:'m'+Math.random().toString(36).slice(2,8),time:Date.now(),read:false,...n});write(LS.notif,notifs);}
+function advance(inst){
+  inst.cursor++;
+  while(inst.cursor<inst.steps.length){const st=inst.steps[inst.cursor];
+    if(st.kind==='branch'){inst.cursor++;continue;}
+    if(st.kind==='cc'){st.status='done';pushNotif({type:'cc',title:'抄送给你',body:`${inst.title} · ${st.assignees.join('、')||'抄送'}`,instId:inst.id});inst.cursor++;continue;}
+    st.status='pending';pushNotif({type:'task',title:'待你审批',body:`${inst.title} · 环节「${st.name}」 · 发起人 ${inst.initiator}`,instId:inst.id});return;}
+  inst.status='approved';pushNotif({type:'result',title:'审批通过 ✓',body:`${inst.title} 已全部通过`,instId:inst.id});
+}
+function resubmit(inst){
+  inst.steps=compileSteps(FLOW,inst.data);
+  inst.cursor=-1;inst.status='running';inst.resubmittedAt=Date.now();
+  pushNotif({type:'submit',title:'重新提交',body:inst.title+' 已重新发起审批',instId:inst.id});
+  advance(inst);saveAll();
+}
+
+/* ---- state ---- */
+let filter='all', q='', selected=new Set();
+function saveAll(){write(LS.inst,instances);write(LS.notif,notifs);}
+
+/* ---- render ---- */
+function render(){
+  document.getElementById('formName').textContent=FORM?('· '+(FORM.title||'')):'';
+  renderStats();
+  const list=filtered();
+  const wrap=document.getElementById('wrap');
+  if(!FORM||!dataFields().length){ wrap.innerHTML=`<div class="empty"><div class="big">🧩</div><p>还没有表单。请先到 <a href="index.html">表单设计器</a> 创建。</p></div>`; document.getElementById('foot').textContent=''; return; }
+  if(!instances.length){ wrap.innerHTML=`<div class="empty"><div class="big">📭</div><p>还没有提交记录。到 <a href="app.html">手机端</a> 发起填报后，这里就会出现。</p></div>`; document.getElementById('foot').textContent=''; return; }
+  const cols=colFields();
+  wrap.innerHTML=`<table class="grid"><thead><tr>
+    <th style="width:34px"><input type="checkbox" id="selAll"></th>
+    <th>状态</th>${cols.map(f=>`<th>${esc(f.label)}</th>`).join('')}
+    <th>当前环节</th><th>发起人</th><th>提交时间</th><th style="width:200px">操作</th>
+  </tr></thead><tbody>${list.map(rowHtml).join('')||`<tr><td colspan="${cols.length+6}" class="muted" style="text-align:center;padding:30px">没有符合条件的记录</td></tr>`}</tbody></table>`;
+  document.getElementById('foot').textContent=`共 ${instances.length} 条 · 当前显示 ${list.length} 条`+(selected.size?` · 已选 ${selected.size}`:'');
+  document.getElementById('btnBulkDel').disabled=!selected.size;
+  bindTable();
+}
+function renderStats(){
+  const c={all:instances.length,running:0,approved:0,rejected:0};
+  instances.forEach(i=>c[i.status]=(c[i.status]||0)+1);
+  document.getElementById('stats').innerHTML=[
+    ['all','全部',''],['running','审批中','run'],['approved','已通过','ok'],['rejected','已驳回','no']
+  ].map(([k,t,cls])=>`<div class="stat ${filter===k?'on':''}" data-f="${k}"><b class="${cls}">${c[k]||0}</b>${t}</div>`).join('');
+  document.querySelectorAll('.stat').forEach(s=>s.onclick=()=>{filter=s.dataset.f;render();});
+}
+function filtered(){
+  return instances.filter(i=>{
+    if(filter!=='all'&&i.status!==filter) return false;
+    if(q){ const hay=(i.initiator+' '+Object.values(i.data||{}).map(v=>Array.isArray(v)?v.join(' '):v).join(' ')).toLowerCase(); if(!hay.includes(q.toLowerCase())) return false; }
+    return true;
+  });
+}
+function rowHtml(i){
+  const cols=colFields();
+  const cur=i.status==='running'&&currentStep(i)?esc(currentStep(i).name):'<span class="muted">—</span>';
+  return `<tr data-id="${i.id}">
+    <td><input type="checkbox" class="rowsel" data-id="${i.id}" ${selected.has(i.id)?'checked':''}></td>
+    <td>${statusPill(i.status)}</td>
+    ${cols.map(f=>`<td title="${escA(cellText(f,i.data[f.key]))}">${esc(cellText(f,i.data[f.key]))||'<span class="muted">—</span>'}</td>`).join('')}
+    <td>${cur}</td><td>${esc(i.initiator)}</td><td class="muted">${fmt(i.createdAt)}</td>
+    <td class="actions">
+      <button class="btn sm" data-act="view" data-id="${i.id}">查看</button>
+      <button class="btn sm" data-act="edit" data-id="${i.id}">编辑</button>
+      <button class="btn sm" data-act="resubmit" data-id="${i.id}">重新提交</button>
+      <button class="btn sm danger" data-act="del" data-id="${i.id}">删除</button>
+    </td></tr>`;
+}
+function statusPill(s){return s==='approved'?'<span class="pill ok">已通过</span>':s==='rejected'?'<span class="pill no">已驳回</span>':'<span class="pill run">审批中</span>';}
+function cellText(f,v){ if(Array.isArray(v))return v.join('、'); if(f.type==='switch')return v?'是':'否'; if(f.type==='rating')return '★'.repeat(Number(v||0)); return v==null?'':String(v); }
+
+function bindTable(){
+  const all=document.getElementById('selAll');
+  if(all){ const list=filtered(); all.checked=list.length&&list.every(i=>selected.has(i.id));
+    all.onchange=()=>{ list.forEach(i=> all.checked?selected.add(i.id):selected.delete(i.id)); render(); }; }
+  document.querySelectorAll('.rowsel').forEach(c=>c.onclick=e=>{ e.stopPropagation(); c.checked?selected.add(c.dataset.id):selected.delete(c.dataset.id); render(); });
+  document.querySelectorAll('tr[data-id]').forEach(tr=>tr.onclick=e=>{ if(e.target.closest('button')||e.target.closest('input'))return; openView(tr.dataset.id); });
+  document.querySelectorAll('[data-act]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); const id=b.dataset.id;
+    if(b.dataset.act==='view')openView(id);
+    else if(b.dataset.act==='edit')openEdit(id);
+    else if(b.dataset.act==='del')doDelete(id);
+    else if(b.dataset.act==='resubmit')doResubmit(id);
+  });
+}
+
+/* ---- drawer: view / edit ---- */
+function openDrawer(title,body,foot){ document.getElementById('drawerTitle').textContent=title; document.getElementById('drawerBody').innerHTML=body; document.getElementById('drawerFoot').innerHTML=foot||''; document.getElementById('drawer').classList.add('show'); document.getElementById('drawerBg').classList.add('show'); }
+function closeDrawer(){ document.getElementById('drawer').classList.remove('show'); document.getElementById('drawerBg').classList.remove('show'); }
+document.getElementById('drawerClose').onclick=closeDrawer; document.getElementById('drawerBg').onclick=closeDrawer;
+
+function openView(id){
+  const inst=instances.find(i=>i.id===id); if(!inst)return;
+  const data=dataFields().map(f=>`<div class="field"><label>${esc(f.label)}</label><div class="fv">${cellText(f,inst.data[f.key])?esc(cellText(f,inst.data[f.key])):'<span class="muted">—</span>'}</div></div>`).join('');
+  const steps=`<div class="tl"><div class="step ok"><div class="nm">发起申请</div><div class="meta">${esc(inst.initiator)} · ${fmt(inst.createdAt)}</div></div>`+
+    inst.steps.map((s,idx)=>{ const cls=s.kind==='cc'?'cc':s.status==='approved'?'ok':s.status==='rejected'?'no':(idx===inst.cursor&&inst.status==='running')?'cur':'';
+      const tag=s.kind==='cc'?'抄送':s.status==='approved'?'已同意':s.status==='rejected'?'已驳回':(idx===inst.cursor&&inst.status==='running')?'审批中':s.kind==='branch'?'':'待审批';
+      const who=s.actedBy?`${esc(s.actedBy)}${s.comment?'：'+esc(s.comment):''}`:esc((s.assignees||[]).join('、'));
+      return `<div class="step ${cls}"><div class="nm">${esc(s.name)}${tag?' · '+tag:''}</div><div class="meta">${who}${s.actedAt?' · '+fmt(s.actedAt):''}</div></div>`; }).join('')+
+    `<div class="step ${inst.status==='approved'?'ok':inst.status==='rejected'?'no':''}"><div class="nm">流程结束</div><div class="meta">${inst.status==='approved'?'已通过':inst.status==='rejected'?'已驳回':'进行中'}</div></div></div>`;
+  openDrawer('查看 · '+inst.title, `<div class="sec">审批进度</div>${steps}<div class="sec" style="margin-top:14px">表单内容</div>${data}`,
+    `<button class="btn" id="dEdit">编辑</button><button class="btn primary" id="dResub">重新提交</button>`);
+  document.getElementById('dEdit').onclick=()=>openEdit(id);
+  document.getElementById('dResub').onclick=()=>doResubmit(id);
+}
+function openEdit(id){
+  const inst=instances.find(i=>i.id===id); if(!inst)return;
+  const body=`<div id="editForm">${dataFields().map(f=>`<div class="field"><label>${isReq(FLOW&&FLOW.start,f.key,f)?'<span class="req">*</span>':''}${esc(f.label)}</label>${fieldInput(f,inst.data[f.key])}</div>`).join('')}</div>`;
+  openDrawer('编辑 · '+inst.title, body,
+    `<button class="btn" id="eCancel">取消</button><button class="btn" id="eSave">保存</button><button class="btn primary" id="eSaveResub">保存并重新提交</button>`);
+  document.getElementById('eCancel').onclick=closeDrawer;
+  const collect=()=>{ const d=readForm(document.getElementById('editForm')); const miss=dataFields().find(f=>isReq(FLOW&&FLOW.start,f.key,f)&&empty(d[f.key])); return {d,miss}; };
+  document.getElementById('eSave').onclick=()=>{ const {d,miss}=collect(); if(miss){toast('请填写：'+miss.label);return;} inst.data=Object.assign(inst.data||{},d); saveAll(); closeDrawer(); render(); toast('已保存'); };
+  document.getElementById('eSaveResub').onclick=()=>{ const {d,miss}=collect(); if(miss){toast('请填写：'+miss.label);return;} inst.data=Object.assign(inst.data||{},d); resubmit(inst); closeDrawer(); render(); toast('已保存并重新提交'); };
+}
+function doDelete(id){ const inst=instances.find(i=>i.id===id); if(!inst)return; if(!confirm(`删除「${inst.title}」这条提交记录？此操作不可撤销。`))return; instances=instances.filter(i=>i.id!==id); selected.delete(id); saveAll(); closeDrawer(); render(); toast('已删除'); }
+function doResubmit(id){ const inst=instances.find(i=>i.id===id); if(!inst)return; if(!confirm(`将「${inst.title}」重新提交审批？将按当前流程重新走一遍。`))return; resubmit(inst); closeDrawer(); render(); toast('已重新提交'); }
+function bulkDelete(){ if(!selected.size)return; if(!confirm(`删除选中的 ${selected.size} 条记录？`))return; instances=instances.filter(i=>!selected.has(i.id)); selected.clear(); saveAll(); render(); toast('已删除'); }
+
+/* ---- field input / read (same scheme as app.html) ---- */
+function fieldInput(f,val){const k=f.key,ph=escA(f.placeholder||'请输入');switch(f.type){
+  case 'multi_text':return `<textarea class="fi" data-key="${k}" data-ft="t">${esc(val||'')}</textarea>`;
+  case 'number':case 'amount':case 'percent':case 'slider':return `<input class="fi" type="${f.type==='slider'?'range':'number'}" data-key="${k}" data-ft="t" value="${escA(val??'')}" ${f.type==='slider'?`min="${f.min??0}" max="${f.max??100}" step="${f.step??1}"`:'placeholder="0"'}>`;
+  case 'date':return `<input class="fi" type="date" data-key="${k}" data-ft="t" value="${escA(val||'')}">`;
+  case 'datetime':return `<input class="fi" type="datetime-local" data-key="${k}" data-ft="t" value="${escA(val||'')}">`;
+  case 'time':return `<input class="fi" type="time" data-key="${k}" data-ft="t" value="${escA(val||'')}">`;
+  case 'radio':return `<div class="opts" data-key="${k}" data-ft="radio">`+(f.options||[]).map(o=>`<label class="opt"><input type="radio" name="r_${k}" value="${escA(o)}" ${val===o?'checked':''}> ${esc(o)}</label>`).join('')+`</div>`;
+  case 'checkbox':case 'multi_dropdown':{const a=Array.isArray(val)?val:[];return `<div class="opts" data-key="${k}" data-ft="multi">`+(f.options||[]).map(o=>`<label class="opt"><input type="checkbox" value="${escA(o)}" ${a.includes(o)?'checked':''}> ${esc(o)}</label>`).join('')+`</div>`;}
+  case 'dropdown':return `<select class="fi" data-key="${k}" data-ft="t"><option value="">请选择</option>`+(f.options||[]).map(o=>`<option ${val===o?'selected':''}>${esc(o)}</option>`).join('')+`</select>`;
+  case 'switch':return `<label class="sw"><input type="checkbox" data-key="${k}" data-ft="bool" ${val?'checked':''}><span></span></label>`;
+  case 'rating':{const v=Number(val||0),mx=f.max||5;let s='';for(let i=1;i<=mx;i++)s+=`<span data-i="${i}" class="${i<=v?'on':''}">★</span>`;return `<div class="stars" data-key="${k}" data-ft="num" data-val="${v}">${s}</div>`;}
+  default:{const t=f.type==='phone'?'tel':f.type==='email'?'email':f.type==='url'?'url':f.type==='password'?'password':'text';return `<input class="fi" type="${t}" data-key="${k}" data-ft="t" value="${escA(val||'')}" placeholder="${ph}">`;}
+}}
+function readForm(cont){const d={};cont.querySelectorAll('[data-key]').forEach(el=>{const k=el.dataset.key,ft=el.dataset.ft;
+  if(ft==='radio'){const c=el.querySelector('input:checked');d[k]=c?c.value:'';}
+  else if(ft==='multi'){d[k]=[...el.querySelectorAll('input:checked')].map(x=>x.value);}
+  else if(ft==='bool'){d[k]=el.checked;}
+  else if(ft==='num'){d[k]=Number(el.dataset.val||0);}
+  else d[k]=el.value;});return d;}
+document.addEventListener('click',e=>{const st=e.target.closest('.stars span');if(!st)return;const box=st.parentElement,i=Number(st.dataset.i);box.dataset.val=i;[...box.children].forEach(c=>c.classList.toggle('on',Number(c.dataset.i)<=i));});
+
+/* ---- export ---- */
+function openModal(title,text){document.getElementById('modalTitle').textContent=title;document.getElementById('jsonArea').value=text;document.getElementById('modalBg').classList.add('show');document.getElementById('jsonArea')._name=title;}
+function csvEscape(s){return '"'+String(s??'').replace(/"/g,'""')+'"';}
+function exportCsv(){
+  const cols=dataFields(); const head=['状态','发起人','当前环节','提交时间',...cols.map(f=>f.label)];
+  const rows=filtered().map(i=>{ const cur=i.status==='running'&&currentStep(i)?currentStep(i).name:''; const st=i.status==='approved'?'已通过':i.status==='rejected'?'已驳回':'审批中';
+    return [st,i.initiator,cur,fmt(i.createdAt),...cols.map(f=>cellText(f,i.data[f.key]))].map(csvEscape).join(','); });
+  const csv='﻿'+[head.map(csvEscape).join(','),...rows].join('\r\n');
+  download((FORM&&FORM.title||'submissions')+'.csv', csv, 'text/csv');
+  toast('已导出 '+rows.length+' 条');
+}
+function download(name,content,mime){const b=new Blob([content],{type:mime||'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();}
+
+/* ---- utils ---- */
+function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function escA(s){return esc(s).replace(/'/g,'&#39;');}
+function empty(v){return v==null||v===''||(Array.isArray(v)&&!v.length);}
+function fmt(ts){if(!ts)return '';const d=new Date(ts);const p=n=>('0'+n).slice(-2);return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),1500);}
+
+/* ---- wire up ---- */
+document.getElementById('search').oninput=e=>{q=e.target.value;render();};
+document.getElementById('btnBulkDel').onclick=bulkDelete;
+document.getElementById('btnExportCsv').onclick=exportCsv;
+document.getElementById('btnExportJson').onclick=()=>openModal('导出 JSON（当前筛选 '+filtered().length+' 条）',JSON.stringify(filtered(),null,2));
+document.getElementById('modalClose').onclick=()=>document.getElementById('modalBg').classList.remove('show');
+document.getElementById('jsonCopy').onclick=()=>navigator.clipboard?.writeText(document.getElementById('jsonArea').value);
+document.getElementById('jsonDownload').onclick=()=>download((FORM&&FORM.title||'submissions')+'.json',document.getElementById('jsonArea').value);
+window.addEventListener('focus',()=>{FORM=read(LS.form,null);FLOW=read(LS.flow,null);instances=read(LS.inst,[]);notifs=read(LS.notif,[]);render();});
+render();
+</script>
+</body>
+</html>

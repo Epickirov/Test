@@ -1,8 +1,8 @@
 /* 好队友 PWA service worker — app-shell cache + offline fallback.
    Data lives in localStorage, so we only need to cache static shell assets. */
-const CACHE = 'hdy-pwa-v2';
+const CACHE = 'hdy-pwa-v3';
 const ASSETS = [
-  './app.html', './index.html', './flow.html',
+  './app.html', './index.html', './flow.html', './manage.html',
   './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-180.png',
 ];
