@@ -1,0 +1,2 @@
+# Qwen / Alibaba Cloud Model Studio (DashScope) SDK
+dashscope>=1.20.0
