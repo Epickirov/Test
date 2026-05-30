@@ -183,6 +183,9 @@ button:active { transform: translateY(0); }
 #reset-simulation:hover { background: #dc281e; }
 .btn-toggle { background: var(--primary); }
 .btn-toggle:hover { background: #1976D2; }
+.btn-smoke { background: #14b8a6; }
+.btn-smoke:hover { background: #0d9488; }
+.btn-smoke.active { background: var(--accent); color: #001119; }
 .btn-slice { background: #6366f1; }
 .btn-slice:hover { background: #4f46e5; }
 .btn-slice.active { background: var(--accent); color: #001119; }

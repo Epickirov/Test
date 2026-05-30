@@ -1,7 +1,15 @@
 /**
- * Airflow particles rendered as a single InstancedMesh, plus additive line
- * trails. Particles enter through the cooling pad, follow the fluid velocity
- * field, take on the local air temperature and exit through the fans.
+ * Airflow visualization. The same particle simulation can be rendered two ways:
+ *
+ *   - "particles" — discrete instanced spheres with additive line trails,
+ *   - "smoke"     — soft, colored, semi-transparent point sprites (a haze).
+ *
+ * Population model: the greenhouse interior holds a *conserved* number of
+ * particles (`config.particleCount`) representing the air. Particles enter at
+ * the cooling pad, follow the flow, take on the local air temperature, and are
+ * blown out through the fans. Anything that exits (or otherwise leaves the
+ * domain) is recycled, and any interior deficit is refilled at the pad every
+ * frame — so the on-screen population stays constant regardless of throughput.
  *
  * A free-list of inactive slots keeps top-up O(needed) rather than O(MAX).
  */
@@ -9,6 +17,7 @@ import * as THREE from 'three';
 import { config, MAX_PARTICLES, TRAIL_LENGTH } from './config.js';
 
 const PARTICLE_RADIUS = 0.08;
+const EXIT_DISTANCE = 1.5;        // how far past the fan an exiting particle travels before recycling
 
 export class ParticleSystem {
     constructor(scene, fluidField, thermalField, greenhouse, environment, evaporativeCooling) {
@@ -19,13 +28,20 @@ export class ParticleSystem {
         this.env = environment;
         this.evap = evaporativeCooling;
 
+        // "particles" representation
         this.instancedParticles = null;
         this.trailMesh = null;
         this.trailPositions = null;
         this.trailColors = null;
 
+        // "smoke" representation
+        this.smokePoints = null;
+        this.smokeGeometry = null;
+        this.smokePositions = null;
+        this.smokeColors = null;
+        this.smokeMaterial = null;
+
         this.particlesData = [];
-        this.activeParticleCount = 0;
         this.freeParticleIndices = [];
         this.showing = true;
 
@@ -38,19 +54,11 @@ export class ParticleSystem {
     }
 
     init() {
-        if (this.instancedParticles) {
-            this.scene.remove(this.instancedParticles);
-            this.instancedParticles.geometry.dispose();
-            this.instancedParticles.material.dispose();
-        }
-        if (this.trailMesh) {
-            this.scene.remove(this.trailMesh);
-            this.trailMesh.geometry.dispose();
-            this.trailMesh.material.dispose();
-        }
+        this._disposeRenderObjects();
         this.particlesData.length = 0;
         this.freeParticleIndices = [];
 
+        // --- Particles: instanced spheres + additive trails ---
         this.instancedParticles = new THREE.InstancedMesh(
             new THREE.SphereGeometry(0.06, 8, 8),
             new THREE.MeshBasicMaterial({ color: 0xffffff }),
@@ -61,33 +69,73 @@ export class ParticleSystem {
             new THREE.InstancedBufferAttribute(new Float32Array(MAX_PARTICLES * 3), 3);
         this.scene.add(this.instancedParticles);
 
-        const segmentsPerTrail = TRAIL_LENGTH - 1;
-        const totalVertices = MAX_PARTICLES * segmentsPerTrail * 2;
+        const totalVertices = MAX_PARTICLES * (TRAIL_LENGTH - 1) * 2;
         this.trailPositions = new Float32Array(totalVertices * 3);
         this.trailColors = new Float32Array(totalVertices * 3);
-
         const trailGeo = new THREE.BufferGeometry();
         trailGeo.setAttribute('position', new THREE.BufferAttribute(this.trailPositions, 3).setUsage(THREE.DynamicDrawUsage));
         trailGeo.setAttribute('color', new THREE.BufferAttribute(this.trailColors, 3).setUsage(THREE.DynamicDrawUsage));
         this.trailMesh = new THREE.LineSegments(trailGeo, new THREE.LineBasicMaterial({
-            vertexColors: true,
-            transparent: true,
-            opacity: 0.4,
-            blending: THREE.AdditiveBlending,
+            vertexColors: true, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending,
         }));
         this.scene.add(this.trailMesh);
 
+        // --- Smoke: soft colored point sprites ---
+        this.smokePositions = new Float32Array(MAX_PARTICLES * 3);
+        this.smokeColors = new Float32Array(MAX_PARTICLES * 3);
+        this.smokeGeometry = new THREE.BufferGeometry();
+        this.smokeGeometry.setAttribute('position', new THREE.BufferAttribute(this.smokePositions, 3).setUsage(THREE.DynamicDrawUsage));
+        this.smokeGeometry.setAttribute('color', new THREE.BufferAttribute(this.smokeColors, 3).setUsage(THREE.DynamicDrawUsage));
+        this.smokeGeometry.setDrawRange(0, 0);
+        this.smokeMaterial = new THREE.PointsMaterial({
+            map: ParticleSystem._makeSmokeTexture(),
+            size: config.smokeSize,
+            sizeAttenuation: true,
+            vertexColors: true,
+            transparent: true,
+            opacity: config.smokeOpacity,
+            depthWrite: false,
+            blending: THREE.NormalBlending,
+        });
+        this.smokePoints = new THREE.Points(this.smokeGeometry, this.smokeMaterial);
+        this.scene.add(this.smokePoints);
+
         this.createParticles();
+        this._applyVisibility();
     }
 
-    /** Seed the pool: ~80% start inside, ~20% as incoming outside air. */
-    createParticles() {
-        this.activeParticleCount = config.particleCount;
-        this.freeParticleIndices = [];
+    _disposeRenderObjects() {
+        for (const obj of [this.instancedParticles, this.trailMesh, this.smokePoints]) {
+            if (!obj) continue;
+            this.scene.remove(obj);
+            obj.geometry.dispose();
+            const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+            for (const m of mats) { if (m.map) m.map.dispose(); m.dispose(); }
+        }
+    }
 
+    /** Soft radial-gradient sprite used for smoke puffs. */
+    static _makeSmokeTexture() {
+        const s = 64;
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = s;
+        const ctx = canvas.getContext('2d');
+        const g = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+        g.addColorStop(0.0, 'rgba(255,255,255,1)');
+        g.addColorStop(0.4, 'rgba(255,255,255,0.45)');
+        g.addColorStop(1.0, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, s, s);
+        return new THREE.CanvasTexture(canvas);
+    }
+
+    /** Seed the interior with the full population, distributed through the volume. */
+    createParticles() {
+        this.freeParticleIndices = [];
+        const target = config.particleCount;
         for (let i = 0; i < MAX_PARTICLES; i++) {
-            if (i < this.activeParticleCount) {
-                this._initParticle(i, i < this.activeParticleCount * 0.8 ? 'inside' : 'outside');
+            if (i < target) {
+                this._spawnParticle(i, false);
             } else {
                 this.particlesData[i] = { active: false };
                 this.freeParticleIndices.push(i);
@@ -95,50 +143,65 @@ export class ParticleSystem {
         }
     }
 
-    _initParticle(i, state) {
-        const hw = config.greenhouseWidth / 2;
+    /**
+     * (Re)initialise slot `i`.
+     * @param {number} i
+     * @param {boolean} atPad - true to enter at the cooling-pad inlet, false to
+     *                          seed at a random point throughout the volume.
+     */
+    _spawnParticle(i, atPad) {
         const hl = config.greenhouseLength / 2;
+        const r = PARTICLE_RADIUS;
+        const padBottom = config.coolingPadElevation;
 
-        let x, y, z;
-        if (state === 'outside' && config.showOutsideParticles) {
-            x = (Math.random() - 0.5) * hw * 1.5;
-            y = config.coolingPadElevation + (Math.random() * config.coolingPadHeight);
-            z = -hl - 0.5 - Math.random() * 2.5;
+        let x, y, z, vz;
+        if (atPad) {
+            x = (Math.random() - 0.5) * config.greenhouseWidth * 0.9;
+            y = padBottom + Math.random() * config.coolingPadHeight;
+            z = -hl + r + Math.random() * 0.15;
+            vz = 0.5 + Math.random() * 0.6;
         } else {
-            x = (Math.random() - 0.5) * hw * 1.8;
-            y = config.coolingPadElevation + (Math.random() * config.coolingPadHeight);
-            z = -hl + 0.1 + (Math.random() * hl);
-            state = 'inside';
+            x = (Math.random() - 0.5) * config.greenhouseWidth * 0.9;
+            y = r + Math.random() * (config.greenhouseHeight - 2 * r);
+            z = -hl + r + Math.random() * (config.greenhouseLength - 2 * r);
+            vz = 0.2 + Math.random() * 0.4;
         }
 
+        const position = new THREE.Vector3(x, y, z);
         this.particlesData[i] = {
             active: true,
-            state,
             exiting: false,
-            position: new THREE.Vector3(x, y, z),
-            velocity: new THREE.Vector3(
-                (Math.random() - 0.5) * 0.2,
-                (Math.random() - 0.5) * 0.2,
-                state === 'outside' ? Math.random() * 0.5 + 0.5 : Math.random() * 0.5 + 0.2
-            ),
-            temperature: state === 'outside' ? this.env.outsideTemperature : this.evap.padOutletTemp,
-            trailHistory: Array.from({ length: TRAIL_LENGTH }, () => new THREE.Vector3(x, y, z)),
+            position,
+            velocity: new THREE.Vector3((Math.random() - 0.5) * 0.2, (Math.random() - 0.5) * 0.2, vz),
+            temperature: this.evap.padOutletTemp,
+            trailHistory: Array.from({ length: TRAIL_LENGTH }, () => position.clone()),
             trailUpdateCounter: 0,
         };
     }
 
     setVisible(visible) {
         this.showing = visible;
-        this.instancedParticles.visible = visible;
-        this.trailMesh.visible = visible && config.showParticleTrails;
+        this._applyVisibility();
     }
 
-    /** Number of active particles currently inside the greenhouse. */
+    setSmokeMode(enabled) {
+        config.smokeMode = enabled;
+        this._applyVisibility();
+    }
+
+    _applyVisibility() {
+        const smoke = config.smokeMode;
+        this.instancedParticles.visible = this.showing && !smoke;
+        this.trailMesh.visible = this.showing && !smoke && config.showParticleTrails;
+        this.smokePoints.visible = this.showing && smoke;
+    }
+
+    /** Number of active particles currently inside the greenhouse (excludes those exiting). */
     countActiveInside() {
         let count = 0;
         for (let i = 0; i < MAX_PARTICLES; i++) {
             const p = this.particlesData[i];
-            if (p && p.active && p.state === 'inside') count++;
+            if (p && p.active && !p.exiting) count++;
         }
         return count;
     }
@@ -147,22 +210,23 @@ export class ParticleSystem {
         const hw = config.greenhouseWidth / 2;
         const hl = config.greenhouseLength / 2;
         const r = PARTICLE_RADIUS;
-        const dummy = this._dummy;
-        const color = this._color;
         const fans = this.greenhouse.fans;
-        const padBottom = config.coolingPadElevation;
-        const padTop = config.coolingPadElevation + config.coolingPadHeight;
-        const drawTrails = this.showing && config.showParticleTrails;
         const useFluid = config.useFluidSimulation && this.fluid.available;
+        const smoke = config.smokeMode;
+        const drawTrails = this.showing && !smoke && config.showParticleTrails;
+
+        const nearestFan = (px) => {
+            let best = fans[0], bestDist = Infinity;
+            for (const f of fans) {
+                const d = Math.abs(px - f.position.x);
+                if (d < bestDist) { bestDist = d; best = f; }
+            }
+            return best;
+        };
 
         let drawIndex = 0;
         let trailVertIndex = 0;
-
-        // Top up active particles from the free list.
-        while (this.freeParticleIndices.length > 0
-            && (MAX_PARTICLES - this.freeParticleIndices.length) < this.activeParticleCount) {
-            this._initParticle(this.freeParticleIndices.pop(), 'outside');
-        }
+        let insideCount = 0;
 
         for (let i = 0; i < MAX_PARTICLES; i++) {
             const p = this.particlesData[i];
@@ -171,46 +235,31 @@ export class ParticleSystem {
             p.velocity.multiplyScalar(0.99);
             p.velocity.y -= 0.0001 * deltaTime;
 
-            if (p.state === 'outside') {
-                p.velocity.y += (((padBottom + padTop) / 2) - p.position.y) * 0.05 * deltaTime;
-                p.velocity.x += (0 - p.position.x) * 0.02 * deltaTime;
-                p.velocity.z += 0.1 * deltaTime;
+            if (p.exiting) {
+                // Blown out of a fan — fly clear of the greenhouse, then recycle.
                 p.position.addScaledVector(p.velocity, deltaTime * 0.5);
-
-                if (p.position.z > -hl) {
-                    if (Math.abs(p.position.x) < hw && p.position.y > padBottom && p.position.y < padTop) {
-                        p.state = 'inside';
-                        p.temperature = this.evap.padOutletTemp;
-                        p.position.z = -hl + r;
-                    } else {
-                        p.position.z = -hl - r;
-                        p.velocity.z *= -0.5;
-                    }
-                }
-
-                if (Math.abs(p.position.x) > hw * 2) { p.position.x = Math.sign(p.position.x) * hw * 2; p.velocity.x *= -0.5; }
-                if (p.position.y > config.greenhouseHeight * 1.5) { p.position.y = config.greenhouseHeight * 1.5; p.velocity.y *= -0.5; }
-                if (p.position.y < r) { p.position.y = r; p.velocity.y *= -0.5; }
-
-            } else if (p.exiting) {
-                p.position.addScaledVector(p.velocity, deltaTime * 0.5);
-                if (p.position.z > hl + 4) {
+                if (p.position.z > hl + EXIT_DISTANCE) {
                     p.active = false;
                     this.freeParticleIndices.push(i);
+                    continue;
                 }
-
             } else {
-                // INSIDE: follow the fluid field, equilibrate to local air temp.
+                // Interior air: follow the flow and equilibrate to the local temperature.
                 if (useFluid) {
                     const fv = this.fluid.sampleVelocityAtWorld(p.position.x, p.position.y, p.position.z);
-                    this._flowVec.set(
-                        fv[0] * hw * 0.04,
-                        fv[1] * config.greenhouseHeight * 0.04,
-                        fv[2] * hl * 0.04
-                    );
+                    this._flowVec.set(fv[0] * hw * 0.04, fv[1] * config.greenhouseHeight * 0.04, fv[2] * hl * 0.04);
                     p.velocity.lerp(this._flowVec, 0.15);
                 } else {
+                    // Fallback flow: forward drift + light turbulence, funnelling to the
+                    // nearest fan in the rear half so particles reach an exit (no pile-up).
                     p.velocity.z += 0.1 * config.fanSpeed * deltaTime;
+                    p.velocity.x += (Math.random() - 0.5) * 0.02 * deltaTime;
+                    p.velocity.y += (Math.random() - 0.5) * 0.02 * deltaTime;
+                    if (p.position.z > 0) {
+                        const f = nearestFan(p.position.x);
+                        p.velocity.x += (f.position.x - p.position.x) * 0.02 * config.fanSpeed * deltaTime;
+                        p.velocity.y += (f.position.y - p.position.y) * 0.01 * config.fanSpeed * deltaTime;
+                    }
                 }
 
                 const localT = this.thermal.sampleTemperature(p.position.x, p.position.y, p.position.z);
@@ -227,9 +276,9 @@ export class ParticleSystem {
                 if (p.position.z > hl - r) {
                     let exited = false;
                     for (const fan of fans) {
-                        const distToFanCenter = Math.hypot(p.position.x - fan.position.x, p.position.y - fan.position.y);
+                        const distToFan = Math.hypot(p.position.x - fan.position.x, p.position.y - fan.position.y);
                         const fanRadius = 0.7;
-                        if (distToFanCenter < fanRadius && config.fanSpeed > 0) {
+                        if (distToFan < fanRadius && config.fanSpeed > 0) {
                             if (Math.random() < 0.9) {
                                 p.exiting = true;
                                 p.velocity.x = (fan.position.x - p.position.x) * 0.1;
@@ -238,29 +287,25 @@ export class ParticleSystem {
                                 exited = true;
                                 break;
                             }
-                        } else if (distToFanCenter < fanRadius * 2.5 && config.fanSpeed > 0) {
+                        } else if (distToFan < fanRadius * 2.5 && config.fanSpeed > 0) {
                             p.velocity.x += (fan.position.x - p.position.x) * 0.05 * config.fanSpeed;
                             p.velocity.y += (fan.position.y - p.position.y) * 0.05 * config.fanSpeed;
                         }
                     }
                     if (!exited) {
+                        // Bounce off the exhaust wall and slide toward a fan so it can leave.
                         p.position.z = hl - r;
-                        p.velocity.z *= -0.5;
+                        p.velocity.z *= -0.4;
+                        const f = nearestFan(p.position.x);
+                        p.velocity.x += Math.sign(f.position.x - p.position.x) * 0.3 * config.fanSpeed * deltaTime;
+                        p.velocity.y += Math.sign(f.position.y - p.position.y) * 0.3 * config.fanSpeed * deltaTime;
                     }
                 }
+
+                if (!p.exiting) insideCount++;
             }
 
-            // ---- Render this particle ----
-            dummy.position.copy(p.position);
-            dummy.updateMatrix();
-            this.instancedParticles.setMatrixAt(drawIndex, dummy.matrix);
-
-            const tRatio = THREE.MathUtils.clamp(
-                (p.temperature - config.scaleMin) / (config.scaleMax - config.scaleMin), 0, 1
-            );
-            color.setHSL((1 - tRatio) * 0.66, 1.0, 0.5);
-            this.instancedParticles.setColorAt(drawIndex, color);
-            drawIndex++;
+            this._renderParticle(p, drawIndex, smoke);
 
             if (drawTrails) {
                 if (++p.trailUpdateCounter > 2) {
@@ -268,29 +313,75 @@ export class ParticleSystem {
                     p.trailHistory.unshift(p.position.clone());
                     p.trailUpdateCounter = 0;
                 }
+                const c = this._color;
                 for (let j = 0; j < TRAIL_LENGTH - 1; j++) {
-                    const pt1 = p.trailHistory[j];
-                    const pt2 = p.trailHistory[j + 1];
+                    const a = p.trailHistory[j], b = p.trailHistory[j + 1];
                     const i1 = (trailVertIndex++) * 3;
-                    this.trailPositions[i1] = pt1.x; this.trailPositions[i1 + 1] = pt1.y; this.trailPositions[i1 + 2] = pt1.z;
-                    this.trailColors[i1] = color.r; this.trailColors[i1 + 1] = color.g; this.trailColors[i1 + 2] = color.b;
+                    this.trailPositions[i1] = a.x; this.trailPositions[i1 + 1] = a.y; this.trailPositions[i1 + 2] = a.z;
+                    this.trailColors[i1] = c.r; this.trailColors[i1 + 1] = c.g; this.trailColors[i1 + 2] = c.b;
                     const i2 = (trailVertIndex++) * 3;
-                    this.trailPositions[i2] = pt2.x; this.trailPositions[i2 + 1] = pt2.y; this.trailPositions[i2 + 2] = pt2.z;
-                    this.trailColors[i2] = color.r; this.trailColors[i2 + 1] = color.g; this.trailColors[i2 + 2] = color.b;
+                    this.trailPositions[i2] = b.x; this.trailPositions[i2 + 1] = b.y; this.trailPositions[i2 + 2] = b.z;
+                    this.trailColors[i2] = c.r; this.trailColors[i2 + 1] = c.g; this.trailColors[i2 + 2] = c.b;
                 }
             }
+
+            drawIndex++;
         }
 
-        this.instancedParticles.count = drawIndex;
-        this.instancedParticles.instanceMatrix.needsUpdate = true;
-        this.instancedParticles.instanceColor.needsUpdate = true;
+        // Conserve the interior population: refill any deficit as fresh air at the pad.
+        let deficit = config.particleCount - insideCount;
+        while (deficit > 0 && this.freeParticleIndices.length > 0) {
+            const idx = this.freeParticleIndices.pop();
+            this._spawnParticle(idx, true);
+            this._renderParticle(this.particlesData[idx], drawIndex, smoke);
+            drawIndex++;
+            deficit--;
+        }
 
-        if (drawTrails) {
-            this.trailMesh.geometry.attributes.position.needsUpdate = true;
-            this.trailMesh.geometry.attributes.color.needsUpdate = true;
-            const usedFloats = trailVertIndex * 3;
-            if (usedFloats < this.trailPositions.length) {
-                this.trailPositions.fill(0, usedFloats);
+        this._finalizeBuffers(smoke, drawIndex, trailVertIndex, drawTrails);
+    }
+
+    /** Write one particle's transform/colour into the active representation's buffers. */
+    _renderParticle(p, drawIndex, smoke) {
+        const tRatio = THREE.MathUtils.clamp(
+            (p.temperature - config.scaleMin) / (config.scaleMax - config.scaleMin), 0, 1
+        );
+        this._color.setHSL((1 - tRatio) * 0.66, 1.0, 0.5);
+
+        if (smoke) {
+            const o = drawIndex * 3;
+            this.smokePositions[o] = p.position.x;
+            this.smokePositions[o + 1] = p.position.y;
+            this.smokePositions[o + 2] = p.position.z;
+            this.smokeColors[o] = this._color.r;
+            this.smokeColors[o + 1] = this._color.g;
+            this.smokeColors[o + 2] = this._color.b;
+        } else {
+            this._dummy.position.copy(p.position);
+            this._dummy.updateMatrix();
+            this.instancedParticles.setMatrixAt(drawIndex, this._dummy.matrix);
+            this.instancedParticles.setColorAt(drawIndex, this._color);
+        }
+    }
+
+    _finalizeBuffers(smoke, drawIndex, trailVertIndex, drawTrails) {
+        if (smoke) {
+            this.smokeGeometry.setDrawRange(0, drawIndex);
+            this.smokeGeometry.attributes.position.needsUpdate = true;
+            this.smokeGeometry.attributes.color.needsUpdate = true;
+            this.smokeMaterial.size = config.smokeSize;
+            this.smokeMaterial.opacity = config.smokeOpacity;
+        } else {
+            this.instancedParticles.count = drawIndex;
+            this.instancedParticles.instanceMatrix.needsUpdate = true;
+            this.instancedParticles.instanceColor.needsUpdate = true;
+            if (drawTrails) {
+                this.trailMesh.geometry.attributes.position.needsUpdate = true;
+                this.trailMesh.geometry.attributes.color.needsUpdate = true;
+                const usedFloats = trailVertIndex * 3;
+                if (usedFloats < this.trailPositions.length) {
+                    this.trailPositions.fill(0, usedFloats);
+                }
             }
         }
     }

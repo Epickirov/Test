@@ -4,7 +4,7 @@
  * the simulation.
  */
 import GUI from 'lil-gui';
-import { config, MAX_PARTICLES } from './config.js';
+import { config, MAX_TARGET_PARTICLES } from './config.js';
 
 /**
  * @param {object} callbacks
@@ -43,9 +43,13 @@ export function createControlPanel({ onStructureChange, onParticleCountChange, o
 
     const sim = gui.addFolder('Simulation');
     sim.add(config, 'simulationSpeed', { 'Real-Time': 0.0014, '1X': 1, '5X': 5, '20X Fast': 20 }).name('Time Scale');
-    sim.add(config, 'particleCount', 100, MAX_PARTICLES, 100).name('Particle Count').onFinishChange(onParticleCountChange);
+    sim.add(config, 'particleCount', 100, MAX_TARGET_PARTICLES, 100).name('Particle Count').onFinishChange(onParticleCountChange);
     sim.add(config, 'fluidResolution', { 'Low (24)': 24, 'Med (32)': 32, 'High (48)': 48 })
         .name('Field Resolution').onFinishChange(onResolutionChange);
+
+    const vis = gui.addFolder('Smoke');
+    vis.add(config, 'smokeSize', 0.3, 3.0).name('Puff Size');
+    vis.add(config, 'smokeOpacity', 0.1, 1.0).name('Opacity');
 
     return gui;
 }

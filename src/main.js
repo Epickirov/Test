@@ -100,6 +100,14 @@ class GreenhouseSimulation {
             btnPart.textContent = visible ? 'Hide Particles' : 'Show Particles';
         });
 
+        const btnSmoke = document.getElementById('toggle-smoke');
+        btnSmoke.addEventListener('click', () => {
+            const smoke = !config.smokeMode;
+            this.particleSystem.setSmokeMode(smoke);
+            btnSmoke.classList.toggle('active', smoke);
+            btnSmoke.textContent = smoke ? 'Particles' : 'Smoke';
+        });
+
         const btnSlice = document.getElementById('toggle-slice');
         const slicePanel = document.getElementById('slice-control');
         btnSlice.addEventListener('click', () => {

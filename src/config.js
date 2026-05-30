@@ -34,9 +34,8 @@ export const config = {
 
     // ---- Simulation ----
     simulationSpeed: 1,
-    particleCount: 1500,
+    particleCount: 1500,           // air particles kept inside the greenhouse (conserved)
     showParticleTrails: true,
-    showOutsideParticles: true,
     useFluidSimulation: true,
     fluidResolution: 32,
     fluidIterations: 12,
@@ -52,10 +51,22 @@ export const config = {
     showHotSpots: false,
     scaleMin: 15,                  // auto-tracked temperature scale (°C)
     scaleMax: 40,
+
+    // ---- Airflow rendering ----
+    smokeMode: false,              // render airflow as colored smoke instead of discrete particles
+    smokeSize: 1.4,                // smoke puff size (world units) — large enough to overlap into a haze
+    smokeOpacity: 0.5,
 };
 
-/** Hard cap on the instanced-particle pool (also the trail allocation size). */
-export const MAX_PARTICLES = 5000;
+/**
+ * Size of the particle pool. Larger than the maximum interior population
+ * (MAX_TARGET_PARTICLES) so there is always headroom for particles in transit
+ * (being blown out of the fans) while the interior stays fully populated.
+ */
+export const MAX_PARTICLES = 7000;
+
+/** Maximum interior population selectable in the GUI. */
+export const MAX_TARGET_PARTICLES = 5000;
 
 /** Number of history points retained per particle trail. */
 export const TRAIL_LENGTH = 12;
