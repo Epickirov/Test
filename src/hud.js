@@ -21,6 +21,7 @@ export class Hud {
 
         const ids = [
             'temp', 'time', 'humidity', 'lux', 'active-particles', 'outside-temp-value',
+            'sky-temp-value', 'solar-irradiance',
             'db-temp', 'wb-temp', 'pad-eff', 'pad-outlet', 'wb-badge',
             'cool-zone-temp', 'mid-zone-temp', 'exhaust-zone-temp', 'delta-temp',
             'pad-velocity', 'fan-velocity', 'scale-min', 'scale-max',
@@ -43,6 +44,8 @@ export class Hud {
         el['lux'].textContent = Math.round(calculateDayFactor(currentTime) * config.maxLux).toLocaleString();
         el['active-particles'].textContent = this.particles.countActiveInside();
         el['outside-temp-value'].textContent = outsideTemperature.toFixed(1);
+        el['sky-temp-value'].textContent = this.thermal.skyTemperature.toFixed(1);
+        el['solar-irradiance'].textContent = Math.round(this.thermal.solarIrradiance);
 
         // ---- Evaporative cooling ----
         el['db-temp'].textContent = outsideTemperature.toFixed(1);

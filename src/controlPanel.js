@@ -39,7 +39,8 @@ export function createControlPanel({ onStructureChange, onParticleCountChange, o
     therm.add(config, 'thermalDiffusion', 0.001, 0.5).name('Eddy Diffusivity');
     therm.add(config, 'roofUValue', 1, 10).name('Roof U-value');
     therm.add(config, 'wallUValue', 1, 10).name('Wall U-value');
-    therm.add(config, 'solarGainCoefficient', 0, 1).name('Solar Gain');
+    therm.add(config, 'solarGainCoefficient', 0, 1).name('Solar Transmit (τ)');
+    therm.add(config, 'coverEmissivity', 0.5, 1.0).name('Cover Emissivity');
 
     const sim = gui.addFolder('Simulation');
     sim.add(config, 'simulationSpeed', { 'Real-Time': 0.0014, '1X': 1, '5X': 5, '20X Fast': 20 }).name('Time Scale');

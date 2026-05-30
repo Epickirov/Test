@@ -30,7 +30,9 @@ export const config = {
     // ---- Building thermal properties ----
     roofUValue: 6.0,               // W/m²·K, single-layer polyethylene-ish
     wallUValue: 5.0,
-    solarGainCoefficient: 0.7,     // glazing transmittance
+    solarGainCoefficient: 0.7,     // glazing solar transmittance (τ)
+    coverEmissivity: 0.9,          // longwave emissivity of the glazing (sky radiation)
+    floorAbsorptance: 0.85,        // fraction of transmitted solar absorbed at the floor
 
     // ---- Simulation ----
     simulationSpeed: 1,
