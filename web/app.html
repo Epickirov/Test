@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#1677ff" />
+<title>好队友 · 移动工作台</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icons/icon-180.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="好队友" />
+<style>
+  :root{
+    --accent:#1677ff;--accent-weak:#e8f1ff;--bg:#f3f4f6;--panel:#fff;--border:#ebedf0;
+    --text:#1f2329;--muted:#8a8f99;--danger:#e5484d;--green:#0a8f4e;--amber:#d48806;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    background:#dfe3e8;color:var(--text);font-size:14px}
+  .phone{max-width:460px;margin:0 auto;height:100vh;height:100dvh;background:var(--bg);position:relative;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 0 40px rgba(0,0,0,.12)}
+  /* app bar */
+  .appbar{height:50px;flex:0 0 auto;background:var(--accent);color:#fff;display:flex;align-items:center;padding:0 14px;font-weight:600;font-size:16px;position:relative}
+  .appbar .bell{margin-left:auto;background:none;border:0;color:#fff;font-size:18px;position:relative;cursor:pointer}
+  .badge{display:none;position:absolute;top:-6px;right:-8px;background:var(--danger);color:#fff;border-radius:10px;font-size:10px;line-height:16px;min-width:16px;height:16px;padding:0 4px;text-align:center;font-weight:700}
+  .badge.show{display:block}
+  /* views */
+  .view{flex:1;overflow:auto;padding:12px 12px 16px}
+  .tabbar{flex:0 0 auto;display:flex;background:#fff;border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom)}
+  .tab{flex:1;border:0;background:none;padding:7px 0 6px;color:var(--muted);font-size:11px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;position:relative}
+  .tab .ic{font-size:20px;line-height:1}
+  .tab.on{color:var(--accent)}
+  .tab .badge{top:2px;right:50%;margin-right:-22px}
+  /* cards / lists */
+  .card{background:#fff;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .sec-title{font-size:12px;color:var(--muted);margin:4px 4px 8px;font-weight:600}
+  .row{display:flex;align-items:center;gap:10px}
+  .grow{flex:1;min-width:0}
+  .ellipsis{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .muted{color:var(--muted)}
+  .big-btn{display:flex;align-items:center;gap:12px;width:100%;background:linear-gradient(135deg,#2a86ff,#0958d9);color:#fff;border:0;border-radius:12px;padding:16px;font-size:15px;font-weight:600;cursor:pointer}
+  .big-btn .ic{width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:20px}
+  .li{display:flex;gap:11px;align-items:flex-start;padding:12px 4px;border-bottom:1px solid var(--border);cursor:pointer}
+  .li:last-child{border-bottom:0}
+  .li .avt{width:38px;height:38px;border-radius:10px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:17px;color:#fff;background:var(--accent)}
+  .li .t{font-weight:600}
+  .li .s{color:var(--muted);font-size:12px;margin-top:2px}
+  .li .time{color:var(--muted);font-size:11px;white-space:nowrap}
+  .pill{display:inline-block;border-radius:10px;padding:1px 8px;font-size:11px;font-weight:600}
+  .pill.run{background:#fff7e6;color:var(--amber)} .pill.ok{background:#eaf7ee;color:var(--green)}
+  .pill.no{background:#fde8e8;color:var(--danger)} .pill.cc{background:var(--accent-weak);color:var(--accent)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--danger);flex:0 0 auto;margin-top:6px}
+  .empty{text-align:center;color:var(--muted);padding:60px 16px}
+  .empty .big{font-size:46px;opacity:.4}
+  .empty a{color:var(--accent)}
+  /* overlay screen */
+  .screen{position:fixed;inset:0;max-width:460px;margin:0 auto;background:var(--bg);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s;z-index:30;visibility:hidden}
+  .screen.show{transform:translateX(0);visibility:visible}
+  .screen > header{height:50px;flex:0 0 auto;background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;padding:0 10px;font-weight:600}
+  .screen .back{background:none;border:0;color:var(--accent);font-size:15px;cursor:pointer}
+  .screen .sbody{flex:1;overflow:auto;padding:12px}
+  .screen .foot{flex:0 0 auto;display:flex;gap:10px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--border)}
+  /* form fields */
+  .field{margin-bottom:14px}
+  .field > label{display:block;font-size:13px;margin-bottom:6px;font-weight:600}
+  .field .req{color:var(--danger);margin-right:2px}
+  .fi{width:100%;padding:10px 11px;border:1px solid var(--border);border-radius:9px;font-size:14px;background:#fff}
+  textarea.fi{min-height:74px;resize:vertical}
+  .fv{padding:8px 0;font-size:14px;border-bottom:1px dashed var(--border)}
+  .opts{display:flex;flex-direction:column;gap:8px}
+  .opt{display:flex;align-items:center;gap:8px;font-size:14px}
+  .stars{font-size:24px;color:#d9d9d9;letter-spacing:4px}
+  .stars span{cursor:pointer} .stars span.on{color:#f5a623}
+  .sw{position:relative;display:inline-block;width:46px;height:26px}
+  .sw input{display:none}
+  .sw span{position:absolute;inset:0;background:#d9d9d9;border-radius:14px;transition:.2s}
+  .sw span::after{content:"";position:absolute;left:3px;top:3px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.2s}
+  .sw input:checked + span{background:var(--accent)} .sw input:checked + span::after{transform:translateX(20px)}
+  .btn{flex:1;border:1px solid var(--border);background:#fff;border-radius:10px;padding:12px;font-size:15px;font-weight:600;cursor:pointer;color:var(--text)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.danger{color:var(--danger);border-color:#f3c0c2}
+  /* approval timeline */
+  .tl{position:relative;padding-left:22px;margin-top:6px}
+  .tl .step{position:relative;padding-bottom:16px}
+  .tl .step::before{content:"";position:absolute;left:-15px;top:2px;width:10px;height:10px;border-radius:50%;background:#d9d9d9;border:2px solid #fff}
+  .tl .step.ok::before{background:var(--green)} .tl .step.no::before{background:var(--danger)}
+  .tl .step.cur::before{background:var(--accent)} .tl .step.cc::before{background:var(--amber)}
+  .tl::after{content:"";position:absolute;left:-11px;top:4px;bottom:10px;width:2px;background:var(--border);z-index:-1}
+  .tl .step .nm{font-weight:600;font-size:13px}
+  .tl .step .meta{color:var(--muted);font-size:12px}
+  .me-head{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  .me-head .avt{width:54px;height:54px;border-radius:14px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px}
+  .me-row{display:flex;align-items:center;gap:10px;padding:13px 2px;border-bottom:1px solid var(--border)}
+  .me-row:last-child{border-bottom:0}
+  .me-row .ic{width:30px;text-align:center}
+  .me-row .grow{font-size:14px}
+  .me-row .val{color:var(--muted);font-size:13px}
+  .toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#1f2329;color:#fff;padding:9px 16px;border-radius:10px;font-size:13px;opacity:0;transition:.25s;pointer-events:none;z-index:90;max-width:80%;text-align:center}
+  .toast.show{opacity:.95}
+  .banner{background:var(--accent-weak);color:var(--accent);border-radius:10px;padding:10px 12px;font-size:13px;display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  .banner button{margin-left:auto;background:var(--accent);color:#fff;border:0;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="phone">
+  <header class="appbar"><span id="barTitle">工作台</span>
+    <button class="bell" id="bell">🔔<span class="badge" id="bellBadge"></span></button>
+  </header>
+  <main class="view" id="view"></main>
+  <nav class="tabbar">
+    <button class="tab on" data-tab="workbench"><span class="ic">🏠</span>工作台<i class="badge" id="badge-workbench"></i></button>
+    <button class="tab" data-tab="todo"><span class="ic">✅</span>待办<i class="badge" id="badge-todo"></i></button>
+    <button class="tab" data-tab="msg"><span class="ic">📨</span>消息<i class="badge" id="badge-msg"></i></button>
+    <button class="tab" data-tab="me"><span class="ic">👤</span>我的</button>
+  </nav>
+</div>
+
+<div class="screen" id="screen">
+  <header><button class="back" id="screenBack">‹ 返回</button><span id="screenTitle"></span></header>
+  <div class="sbody" id="screenBody"></div>
+  <div class="foot" id="screenFoot" style="display:none"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================================
+   好队友 · 移动工作台 (PWA runtime)
+   Ties the form schema (form designer) + flow definition (flow designer) into
+   an installable mobile app: fill forms -> route through approval branches ->
+   approve/reject -> messages & notification center. Data in localStorage.
+   ========================================================================= */
+
+/* ---------- storage ---------- */
+const LS = {
+  form:'hdy.formbuilder.v1', flow:'hdy.flow.v1',
+  inst:'hdy.instances.v1', notif:'hdy.notif.v1', user:'hdy.user.v1',
+};
+const read = (k,f)=>{ try{ const v=JSON.parse(localStorage.getItem(k)); return v==null?f:v; }catch(e){ return f; } };
+const write = (k,v)=> localStorage.setItem(k, JSON.stringify(v));
+
+let FORM = read(LS.form,null);
+let FLOW = read(LS.flow,null);
+let instances = read(LS.inst,[]);
+let notifs = read(LS.notif,[]);
+let me = read(LS.user,'我');
+
+const LAYOUT_TYPES=['subtable','columns','group','divider','static_text','tabs','collapse','steps'];
+const dataFields = () => FORM && Array.isArray(FORM.fields) ? FORM.fields.filter(f=>!LAYOUT_TYPES.includes(f.type)) : [];
+
+/* ---------- permission helpers (per node) ---------- */
+function permOf(node,key){ return (node && node.perms && node.perms[key]) || {}; }
+function isHidden(node,key){ return !!permOf(node,key).hidden; }
+function canEdit(node,key){ const p=permOf(node,key); if(p.hidden) return false; if(p.edit!==undefined) return p.edit; return node && node.type==='start'; }
+function isReq(node,key,field){ const p=permOf(node,key); return !!p.required || !!(field&&field.required); }
+
+/* ---------- approver labels ---------- */
+const KIND = {user:'人员',role:'角色',dept:'部门',mgr:'发起人主管',self:'发起人本人'};
+const RULE = {any:'或签',all:'会签',seq:'依次审批'};
+const approverLabel = a => (a.kind==='mgr'||a.kind==='self') ? KIND[a.kind] : (a.name || KIND[a.kind]||'未命名');
+
+/* ---------- boolean flow evaluation ---------- */
+function num(x){ const n=parseFloat(x); return isNaN(n)?NaN:n; }
+function evalRule(r,data){
+  const v=data[r.field], t=r.value;
+  switch(r.op){
+    case 'empty': return v==null||v===''||(Array.isArray(v)&&!v.length);
+    case 'notempty': return !(v==null||v===''||(Array.isArray(v)&&!v.length));
+    case 'eq': return String(v??'')===String(t??'');
+    case 'ne': return String(v??'')!==String(t??'');
+    case 'contains': return String(v??'').includes(String(t??''));
+    case 'gt': return num(v)>num(t); case 'lt': return num(v)<num(t);
+    case 'gte': return num(v)>=num(t); case 'lte': return num(v)<=num(t);
+  } return false;
+}
+function branchMatch(b,data){
+  if(b.isDefault) return false;
+  if(!b.rules || !b.rules.length) return false;
+  const res=b.rules.map(r=>evalRule(r,data));
+  return b.logic==='OR' ? res.some(Boolean) : res.every(Boolean);
+}
+function pickBranch(node,data){
+  for(const b of node.branches){ if(branchMatch(b,data)) return b; }
+  return node.branches.find(b=>b.isDefault) || null;
+}
+function compileSteps(flow,data){
+  const steps=[];
+  (function walk(chain){
+    if(!chain) return;
+    for(const n of chain){
+      if(n.type==='approver') steps.push(snapStep('approval',n));
+      else if(n.type==='cc') steps.push(snapStep('cc',n));
+      else if(n.type==='condition'){ const b=pickBranch(n,data); if(b){ steps.push({kind:'branch',name:n.name+' · '+(b.name||''),meta:'条件命中'}); walk(b.children); } }
+    }
+  })(flow ? flow.root : []);
+  return steps;
+}
+function snapStep(kind,node){
+  const list = kind==='approval'? (node.approvers||[]) : (node.cc||[]);
+  return { kind, name:node.name, rule:node.rule||null, perms:node.perms||{},
+           assignees:list.map(approverLabel), status: kind==='approval'?'waiting':'cc' };
+}
+
+/* ---------- instance lifecycle ---------- */
+function submitForm(data){
+  const steps = compileSteps(FLOW,data);
+  const inst = { id:'I'+Date.now().toString(36), title:(FORM&&FORM.title)||'表单', data,
+    initiator:me, createdAt:Date.now(), steps, cursor:-1, status:'running' };
+  instances.unshift(inst);
+  pushNotif({type:'submit', title:'提交成功', body:inst.title, instId:inst.id});
+  advance(inst);                   // fire CCs and arrive at first approval
+  persist();
+  return inst;
+}
+function currentStep(inst){ return inst.steps[inst.cursor]; }
+function advance(inst){
+  inst.cursor++;
+  while(inst.cursor < inst.steps.length){
+    const st=inst.steps[inst.cursor];
+    if(st.kind==='branch'){ inst.cursor++; continue; }
+    if(st.kind==='cc'){ st.status='done'; pushNotif({type:'cc',title:'抄送给你',body:`${inst.title} · ${st.assignees.join('、')||'抄送'}`,instId:inst.id}); inst.cursor++; continue; }
+    st.status='pending';            // approval — wait for action
+    pushNotif({type:'task',title:'待你审批',body:`${inst.title} · 环节「${st.name}」 · 发起人 ${inst.initiator}`,instId:inst.id});
+    return;
+  }
+  inst.status='approved';
+  pushNotif({type:'result',title:'审批通过 ✓',body:`${inst.title} 已全部通过`,instId:inst.id});
+}
+function approve(inst, edits, comment){
+  const st=currentStep(inst); if(!st||st.status!=='pending') return;
+  Object.assign(inst.data, edits||{});
+  st.status='approved'; st.actedBy=me; st.comment=comment||''; st.actedAt=Date.now();
+  advance(inst); persist();
+}
+function reject(inst, comment){
+  const st=currentStep(inst); if(!st||st.status!=='pending') return;
+  st.status='rejected'; st.actedBy=me; st.comment=comment||''; st.actedAt=Date.now();
+  inst.status='rejected';
+  pushNotif({type:'result',title:'审批被驳回 ✕',body:`${inst.title} 在「${st.name}」被 ${me} 驳回`,instId:inst.id});
+  persist();
+}
+function pendingTasks(){ return instances.filter(i=>i.status==='running' && currentStep(i) && currentStep(i).kind==='approval' && currentStep(i).status==='pending'); }
+
+/* ---------- notifications ---------- */
+function pushNotif(n){
+  const item = {id:'m'+Math.random().toString(36).slice(2,8), time:Date.now(), read:false, ...n};
+  notifs.unshift(item); write(LS.notif,notifs);
+  showSystemNotif(n.title, n.body);
+  updateBadges();
+}
+function unread(){ return notifs.filter(n=>!n.read).length; }
+function showSystemNotif(title, body){
+  if(!('Notification' in window) || Notification.permission!=='granted') return;
+  try{
+    if(navigator.serviceWorker && navigator.serviceWorker.controller){
+      navigator.serviceWorker.controller.postMessage({type:'notify', title, body, tag:'hdy'});
+    } else { new Notification(title,{body, icon:'icons/icon-192.png'}); }
+  }catch(e){}
+}
+async function enableNotifications(){
+  if(!('Notification' in window)){ toast('该浏览器不支持通知'); return; }
+  const p = await Notification.requestPermission();
+  toast(p==='granted'?'已开启系统通知':'通知权限被拒绝');
+  showSystemNotif('通知已开启','审批待办与消息会推送到这里');
+  render();
+}
+
+/* ---------- persistence + badges ---------- */
+function persist(){ write(LS.inst,instances); write(LS.notif,notifs); updateBadges(); }
+function updateBadges(){
+  setBadge('badge-todo', pendingTasks().length);
+  setBadge('badge-msg', unread());
+  setBadge('bellBadge', unread());
+  if(navigator.setAppBadge){ const u=unread(); u?navigator.setAppBadge(u):navigator.clearAppBadge&&navigator.clearAppBadge(); }
+}
+function setBadge(id,n){ const e=document.getElementById(id); if(!e) return; e.textContent=n>99?'99+':n; e.classList.toggle('show', n>0); }
+
+/* =========================  VIEWS  ========================= */
+let tab='workbench';
+const TAB_TITLE={workbench:'工作台',todo:'待办审批',msg:'消息中心',me:'我的'};
+function render(){
+  document.getElementById('barTitle').textContent=TAB_TITLE[tab];
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.tab===tab));
+  const v=document.getElementById('view');
+  v.innerHTML = tab==='workbench'?vWorkbench():tab==='todo'?vTodo():tab==='msg'?vMsg():vMe();
+  bindView(v);
+  updateBadges();
+}
+
+function vWorkbench(){
+  if(!FORM || !dataFields().length){
+    return `<div class="empty"><div class="big">📝</div><p>还没有表单。<br>请先在 <a href="index.html">表单设计器</a> 建好表单，<br>再到 <a href="flow.html">审批设计器</a> 配置流程。</p></div>`;
+  }
+  const mine = instances.filter(i=>i.initiator===me).slice(0,8);
+  return `<button class="big-btn" data-act="fill"><span class="ic">＋</span><div class="grow" style="text-align:left">发起填报<div style="font-weight:400;font-size:12px;opacity:.85">${esc(FORM.title)}</div></div><span>›</span></button>
+    <div class="sec-title">我发起的</div>
+    <div class="card">${ mine.length? mine.map(instLi).join('') : '<div class="empty" style="padding:24px">还没有提交记录</div>'}</div>`;
+}
+function vTodo(){
+  const ts=pendingTasks();
+  if(!ts.length) return `<div class="empty"><div class="big">✅</div><p>暂无待办审批</p></div>`;
+  return `<div class="card">${ts.map(i=>{
+    const st=currentStep(i);
+    return `<div class="li" data-task="${i.id}">
+      <div class="avt" style="background:var(--amber)">审</div>
+      <div class="grow"><div class="t ellipsis">${esc(i.title)}</div>
+        <div class="s ellipsis">环节「${esc(st.name)}」· ${esc(st.assignees.join('、')||'未指定')} · ${RULE[st.rule]||''}</div>
+        <div class="s">发起人 ${esc(i.initiator)}</div></div>
+      <div class="time">${rel(i.createdAt)}</div></div>`;
+  }).join('')}</div>`;
+}
+function vMsg(){
+  const banner = (('Notification' in window)&&Notification.permission!=='granted')
+    ? `<div class="banner">🔔 开启系统通知，待办与消息实时提醒<button id="enaNotif">开启</button></div>`:'';
+  if(!notifs.length) return banner+`<div class="empty"><div class="big">📨</div><p>暂无消息</p></div>`;
+  const icon={task:'📌',cc:'👀',result:'✅',submit:'📤'};
+  return banner+`<div class="row" style="justify-content:flex-end;margin-bottom:6px"><button class="linkbtn" id="readAll" style="background:none;border:0;color:var(--accent);font-size:13px">全部已读</button></div>
+    <div class="card">${notifs.map(n=>`<div class="li" data-notif="${n.id}">
+      <div class="avt" style="background:${n.type==='result'?'var(--green)':n.type==='task'?'var(--amber)':'var(--accent)'}">${icon[n.type]||'🔔'}</div>
+      <div class="grow"><div class="t ellipsis">${esc(n.title)}</div><div class="s">${esc(n.body)}</div></div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><div class="time">${rel(n.time)}</div>${n.read?'':'<span class="dot"></span>'}</div>
+    </div>`).join('')}</div>`;
+}
+function vMe(){
+  const notifState = !('Notification' in window)?'不支持':Notification.permission==='granted'?'已开启':'未开启';
+  return `<div class="card">
+      <div class="me-head"><div class="avt">${esc(me[0]||'我')}</div>
+        <div class="grow"><div style="font-weight:700;font-size:17px">${esc(me)}</div><div class="muted" style="font-size:12px">当前操作身份（用于审批/发起）</div></div>
+        <button class="linkbtn" id="editUser" style="background:none;border:0;color:var(--accent)">切换</button></div>
+    </div>
+    <div class="card">
+      <div class="me-row"><span class="ic">🔔</span><span class="grow">系统通知</span><span class="val">${notifState}</span><button class="btn" style="flex:0;padding:6px 12px;font-size:13px" id="enaNotif2">开启</button></div>
+      <div class="me-row"><span class="ic">📲</span><span class="grow">安装到主屏幕</span><button class="btn" style="flex:0;padding:6px 12px;font-size:13px" id="installBtn">安装</button></div>
+      <div class="me-row"><span class="ic">📡</span><span class="grow">离线可用 (PWA)</span><span class="val" id="swState">检测中…</span></div>
+    </div>
+    <div class="sec-title">设计工具（电脑端）</div>
+    <div class="card">
+      <a class="me-row" href="index.html" style="color:inherit;text-decoration:none"><span class="ic">🧩</span><span class="grow">表单设计器</span><span>›</span></a>
+      <a class="me-row" href="flow.html" style="color:inherit;text-decoration:none"><span class="ic">🔀</span><span class="grow">审批流程设计器</span><span>›</span></a>
+    </div>
+    <div class="card"><div class="me-row" id="resetData" style="color:var(--danger)"><span class="ic">🗑️</span><span class="grow">清空演示数据（实例与消息）</span></div></div>
+    <div class="muted" style="text-align:center;font-size:11px;margin-top:10px">好队友 · 低代码工作台 原型</div>`;
+}
+function instLi(i){
+  const st = i.status==='approved'?'<span class="pill ok">已通过</span>': i.status==='rejected'?'<span class="pill no">已驳回</span>':'<span class="pill run">审批中</span>';
+  const cur = i.status==='running' && currentStep(i) ? '当前：'+esc(currentStep(i).name) : '';
+  return `<div class="li" data-inst="${i.id}"><div class="avt">${esc(i.title[0]||'单')}</div>
+    <div class="grow"><div class="t ellipsis">${esc(i.title)}</div><div class="s ellipsis">${cur||'流程结束'}</div></div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">${st}<div class="time">${rel(i.createdAt)}</div></div></div>`;
+}
+
+function bindView(v){
+  const fill=v.querySelector('[data-act="fill"]'); if(fill) fill.onclick=openFill;
+  v.querySelectorAll('[data-task]').forEach(e=>e.onclick=()=>openTask(e.dataset.task));
+  v.querySelectorAll('[data-inst]').forEach(e=>e.onclick=()=>openInstance(e.dataset.inst));
+  v.querySelectorAll('[data-notif]').forEach(e=>e.onclick=()=>openNotif(e.dataset.notif));
+  bindIf(v,'#enaNotif',enableNotifications); bindIf(v,'#enaNotif2',enableNotifications);
+  bindIf(v,'#readAll',()=>{ notifs.forEach(n=>n.read=true); persist(); render(); });
+  bindIf(v,'#editUser',switchUser); bindIf(v,'#installBtn',doInstall);
+  bindIf(v,'#resetData',resetData);
+  const sw=v.querySelector('#swState'); if(sw) sw.textContent = ('serviceWorker' in navigator && navigator.serviceWorker.controller)?'已就绪':'打开一次后生效';
+}
+function bindIf(root,sel,fn){ const e=root.querySelector(sel); if(e) e.onclick=fn; }
+
+/* =========================  SCREENS (overlay)  ========================= */
+function setScreen(title, bodyHtml, footHtml){
+  document.getElementById('screenTitle').textContent=title;
+  document.getElementById('screenBody').innerHTML=bodyHtml;
+  const foot=document.getElementById('screenFoot');
+  if(footHtml){ foot.innerHTML=footHtml; foot.style.display='flex'; } else { foot.style.display='none'; }
+  document.getElementById('screen').classList.add('show');
+}
+function closeScreen(){ document.getElementById('screen').classList.remove('show'); }
+document.getElementById('screenBack').onclick=closeScreen;
+
+/* ---- fill a new form (initiator) ---- */
+function openFill(){
+  const start = FLOW && FLOW.start;
+  const body = dataFields().filter(f=>!isHidden(start,f.key)).map(f=>fieldEditor(f, start, '')).join('') ||
+    '<div class="muted">该表单暂无可填写字段</div>';
+  setScreen('填写 · '+(FORM.title||''), `<div id="fillForm">${body}</div>`,
+    `<button class="btn" id="cancelFill">取消</button><button class="btn primary" id="submitFill">提交</button>`);
+  document.getElementById('cancelFill').onclick=closeScreen;
+  document.getElementById('submitFill').onclick=()=>{
+    const cont=document.getElementById('fillForm');
+    const data=readForm(cont);
+    const miss=dataFields().find(f=>!isHidden(start,f.key)&&isReq(start,f.key,f)&&empty(data[f.key]));
+    if(miss){ toast('请填写：'+miss.label); return; }
+    const inst=submitForm(data); closeScreen();
+    const nxt = inst.status==='approved'?'已自动通过':('下一步：'+(currentStep(inst)?currentStep(inst).name:'结束'));
+    toast('提交成功 · '+nxt); tab='workbench'; render();
+  };
+}
+
+/* ---- approve / reject a task ---- */
+function openTask(instId){
+  const inst=instances.find(i=>i.id===instId); if(!inst) return;
+  const node=currentStep(inst);
+  const fields=dataFields().filter(f=>!isHidden(node,f.key));
+  const body = `<div class="card" style="margin-bottom:10px"><div class="row"><div class="grow"><div style="font-weight:700">${esc(inst.title)}</div>
+      <div class="muted" style="font-size:12px">发起人 ${esc(inst.initiator)} · ${rel(inst.createdAt)}</div></div>
+      <span class="pill run">${esc(node.name)}</span></div>
+      <div class="muted" style="font-size:12px;margin-top:6px">审批人 ${esc(node.assignees.join('、')||'未指定')} · ${RULE[node.rule]||''}</div></div>
+    <div id="taskForm">${ fields.map(f=>{
+        const ed=canEdit(node,f.key);
+        return ed ? fieldEditor(f,node,inst.data[f.key]) : fieldReadonly(f,inst.data[f.key]);
+      }).join('') }</div>
+    <div class="field"><label>审批意见</label><textarea class="fi" id="apprComment" placeholder="选填"></textarea></div>`;
+  setScreen('审批 · '+esc(node.name), body,
+    `<button class="btn danger" id="doReject">驳回</button><button class="btn primary" id="doApprove">同意</button>`);
+  document.getElementById('doApprove').onclick=()=>{
+    const cont=document.getElementById('taskForm');
+    const edits=readForm(cont);
+    const miss=dataFields().find(f=>!isHidden(node,f.key)&&canEdit(node,f.key)&&isReq(node,f.key,f)&&empty(edits[f.key]));
+    if(miss){ toast('请填写：'+miss.label); return; }
+    approve(inst, edits, val('apprComment')); closeScreen(); toast('已同意'); render();
+  };
+  document.getElementById('doReject').onclick=()=>{ reject(inst, val('apprComment')); closeScreen(); toast('已驳回'); render(); };
+}
+
+/* ---- instance detail (timeline) ---- */
+function openInstance(instId){
+  const inst=instances.find(i=>i.id===instId); if(!inst) return;
+  const start=FLOW&&FLOW.start;
+  const data = dataFields().filter(f=>!isHidden(start,f.key)).map(f=>fieldReadonly(f,inst.data[f.key])).join('');
+  const steps = `<div class="tl"><div class="step ok"><div class="nm">发起申请</div><div class="meta">${esc(inst.initiator)} · ${rel(inst.createdAt)}</div></div>`+
+    inst.steps.map((s,idx)=>{
+      let cls = s.kind==='cc'?'cc': s.status==='approved'?'ok': s.status==='rejected'?'no': (idx===inst.cursor&&inst.status==='running')?'cur':'';
+      const tag = s.kind==='cc'?'抄送': s.status==='approved'?'已同意': s.status==='rejected'?'已驳回': (idx===inst.cursor&&inst.status==='running')?'审批中': s.kind==='branch'?'':'待审批';
+      const who = s.actedBy?`${esc(s.actedBy)}${s.comment?'：'+esc(s.comment):''}`:(s.assignees?esc((s.assignees||[]).join('、')):'');
+      return `<div class="step ${cls}"><div class="nm">${esc(s.name)} ${tag?'· '+tag:''}</div><div class="meta">${who}${s.actedAt?' · '+rel(s.actedAt):''}</div></div>`;
+    }).join('')+
+    `<div class="step ${inst.status==='approved'?'ok':inst.status==='rejected'?'no':''}"><div class="nm">流程结束</div><div class="meta">${inst.status==='approved'?'已通过':inst.status==='rejected'?'已驳回':'进行中'}</div></div></div>`;
+  setScreen('详情 · '+esc(inst.title),
+    `<div class="sec-title">审批进度</div><div class="card">${steps}</div><div class="sec-title">表单内容</div><div class="card">${data||'<div class="muted">无</div>'}</div>`);
+}
+
+function openNotif(id){
+  const n=notifs.find(x=>x.id===id); if(!n) return;
+  if(!n.read){ n.read=true; persist(); }
+  if(n.instId && instances.find(i=>i.id===n.instId)){
+    const inst=instances.find(i=>i.id===n.instId);
+    if(n.type==='task' && currentStep(inst) && currentStep(inst).status==='pending') openTask(inst.id);
+    else openInstance(inst.id);
+  }
+  render();
+}
+
+/* ---------- field editors / readers ---------- */
+function fieldEditor(f, node, val){
+  const req = node && isReq(node,f.key,f) ? '<span class="req">*</span>' : '';
+  return `<div class="field"><label>${req}${esc(f.label)}</label>${fieldInput(f,val)}</div>`;
+}
+function fieldReadonly(f,val){
+  return `<div class="field"><label class="muted">${esc(f.label)}</label>${fieldView(f,val)}</div>`;
+}
+function fieldInput(f,val){
+  const k=f.key, ph=escA(f.placeholder||'请输入');
+  switch(f.type){
+    case 'multi_text': return `<textarea class="fi" data-key="${k}" data-ft="t">${esc(val||'')}</textarea>`;
+    case 'number': case 'amount': case 'percent': case 'slider':
+      return `<input class="fi" type="${f.type==='slider'?'range':'number'}" data-key="${k}" data-ft="t" value="${escA(val??'')}" ${f.type==='slider'?`min="${f.min??0}" max="${f.max??100}" step="${f.step??1}"`:'placeholder="0"'}>`;
+    case 'date': return `<input class="fi" type="date" data-key="${k}" data-ft="t" value="${escA(val||'')}">`;
+    case 'datetime': return `<input class="fi" type="datetime-local" data-key="${k}" data-ft="t" value="${escA(val||'')}">`;
+    case 'time': return `<input class="fi" type="time" data-key="${k}" data-ft="t" value="${escA(val||'')}">`;
+    case 'radio': return `<div class="opts" data-key="${k}" data-ft="radio">`+(f.options||[]).map(o=>`<label class="opt"><input type="radio" name="r_${k}" value="${escA(o)}" ${val===o?'checked':''}> ${esc(o)}</label>`).join('')+`</div>`;
+    case 'checkbox': case 'multi_dropdown': { const a=Array.isArray(val)?val:[]; return `<div class="opts" data-key="${k}" data-ft="multi">`+(f.options||[]).map(o=>`<label class="opt"><input type="checkbox" value="${escA(o)}" ${a.includes(o)?'checked':''}> ${esc(o)}</label>`).join('')+`</div>`; }
+    case 'dropdown': return `<select class="fi" data-key="${k}" data-ft="t"><option value="">请选择</option>`+(f.options||[]).map(o=>`<option ${val===o?'selected':''}>${esc(o)}</option>`).join('')+`</select>`;
+    case 'switch': return `<label class="sw"><input type="checkbox" data-key="${k}" data-ft="bool" ${val?'checked':''}><span></span></label>`;
+    case 'rating': { const v=Number(val||0),mx=f.max||5; let s=''; for(let i=1;i<=mx;i++) s+=`<span data-i="${i}" class="${i<=v?'on':''}">★</span>`; return `<div class="stars" data-key="${k}" data-ft="num" data-val="${v}">${s}</div>`; }
+    default:{ const t=f.type==='phone'?'tel':f.type==='email'?'email':f.type==='url'?'url':f.type==='password'?'password':'text'; return `<input class="fi" type="${t}" data-key="${k}" data-ft="t" value="${escA(val||'')}" placeholder="${ph}">`; }
+  }
+}
+function fieldView(f,val){
+  let s = Array.isArray(val)?val.join('、'): f.type==='switch'?(val?'是':'否'): f.type==='rating'?'★'.repeat(Number(val||0)): val;
+  return `<div class="fv">${(s==null||s==='')?'<span class="muted">—</span>':esc(s)}</div>`;
+}
+function readForm(cont){
+  const data={};
+  cont.querySelectorAll('[data-key]').forEach(el=>{
+    const k=el.dataset.key, ft=el.dataset.ft;
+    if(ft==='radio'){ const c=el.querySelector('input:checked'); data[k]=c?c.value:''; }
+    else if(ft==='multi'){ data[k]=[...el.querySelectorAll('input:checked')].map(x=>x.value); }
+    else if(ft==='bool'){ data[k]=el.checked; }
+    else if(ft==='num'){ data[k]=Number(el.dataset.val||0); }
+    else { data[k]=el.value; }
+  });
+  return data;
+}
+
+/* star rating interaction (delegated) */
+document.addEventListener('click', e=>{
+  const star=e.target.closest('.stars span'); if(!star) return;
+  const box=star.parentElement, i=Number(star.dataset.i); box.dataset.val=i;
+  [...box.children].forEach(c=>c.classList.toggle('on', Number(c.dataset.i)<=i));
+});
+
+/* ---------- misc actions ---------- */
+function switchUser(){ const v=prompt('切换当前身份（演示用，可输入：销售总监、品鉴、张三…）', me); if(v && v.trim()){ me=v.trim(); write(LS.user,me); render(); } }
+function resetData(){ if(confirm('清空所有提交实例与消息？（表单与流程定义保留）')){ instances=[]; notifs=[]; persist(); render(); toast('已清空'); } }
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); deferredPrompt=e; });
+async function doInstall(){
+  if(deferredPrompt){ deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; return; }
+  const iOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  toast(iOS?'iOS：点击浏览器“分享”→“添加到主屏幕”':'已安装，或在浏览器菜单选择“安装应用/添加到主屏幕”');
+}
+
+/* ---------- utils ---------- */
+function esc(s){ return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function escA(s){ return esc(s).replace(/'/g,'&#39;'); }
+function empty(v){ return v==null||v===''||(Array.isArray(v)&&!v.length); }
+function val(id){ const e=document.getElementById(id); return e?e.value:''; }
+function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),1600); }
+function rel(ts){ const d=Date.now()-ts; if(d<60000) return '刚刚'; if(d<3600000) return Math.floor(d/60000)+'分钟前'; if(d<86400000) return Math.floor(d/3600000)+'小时前';
+  const x=new Date(ts); return (x.getMonth()+1)+'-'+('0'+x.getDate()).slice(-2); }
+
+/* ---------- boot ---------- */
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{ tab=t.dataset.tab; render(); });
+document.getElementById('bell').onclick=()=>{ tab='msg'; render(); };
+// re-read designer data when returning to the app
+window.addEventListener('focus', ()=>{ FORM=read(LS.form,null); FLOW=read(LS.flow,null); render(); });
+// deep link ?tab=
+const qp=new URLSearchParams(location.search).get('tab'); if(qp&&TAB_TITLE[qp]) tab=qp;
+// service worker
+if('serviceWorker' in navigator){ window.addEventListener('load', ()=> navigator.serviceWorker.register('sw.js').catch(()=>{})); }
+
+render();
+</script>
+</body>
+</html>
