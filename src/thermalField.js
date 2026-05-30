@@ -25,18 +25,17 @@ import { computeGridResolution, calculateDayFactor } from './utils.js';
 // Physical constants (SI).
 const RHO_C_AIR = 1206;            // volumetric heat capacity of air, J/(m³·K)  (ρ≈1.2, cp≈1005)
 const SIGMA = 5.670374419e-8;      // Stefan–Boltzmann constant, W/(m²·K⁴)
-const G = 9.81;                    // gravitational acceleration, m/s²
 const DAYLIGHT_EFFICACY = 110;     // luminous efficacy of daylight, lm/W  (LUX → W/m²)
 const KELVIN = 273.15;
 
 export class ThermalField {
     /**
-     * @param {import('./fluidField.js').FluidField} fluidField
+     * @param {import('./cfd.js').CFDSolver} flow - airflow velocity source
      * @param {import('./evaporativeCooling.js').EvaporativeCooling} evaporativeCooling
      * @param {import('./environment.js').Environment} environment
      */
-    constructor(fluidField, evaporativeCooling, environment) {
-        this.fluid = fluidField;
+    constructor(flow, evaporativeCooling, environment) {
+        this.flow = flow;
         this.evap = evaporativeCooling;
         this.env = environment;
 
@@ -94,52 +93,12 @@ export class ThermalField {
         return c0 * (1 - dz) + c1 * dz;
     }
 
-    /** Mean ventilation velocity (m/s) from fan volumetric flow over the cross-section. */
-    _meanVentilation() {
-        const fanArea = Math.PI * 0.49 * config.fanCount;     // m², fan disc area
-        const fanExitVel = 8.0 * config.fanSpeed;             // m/s at the fan
-        return (fanArea * fanExitVel) / (config.greenhouseWidth * config.greenhouseHeight);
-    }
-
     /**
-     * Flow velocity at a world position (m/s). Uses the external solver if
-     * available; otherwise models fan-driven ventilation funnelling toward the
-     * fans plus a Boussinesq buoyancy term (warm air rises).
-     *
-     * @param {number} [tHint] - local temperature (°C) to avoid a re-sample
+     * Flow velocity (m/s) at a world position, from the CFD solver.
      * @returns {[number, number, number]}
      */
-    velocityAt(wx, wy, wz, tHint) {
-        if (this.fluid.available) {
-            const v = this.fluid.sampleVelocityAtWorld(wx, wy, wz);
-            const s = config.greenhouseLength * 0.04;          // normalised solver units → ~m/s
-            return [v[0] * s, v[1] * s, v[2] * s];
-        }
-
-        const W = config.greenhouseWidth, L = config.greenhouseLength, H = config.greenhouseHeight;
-        const hl = L / 2;
-        let vx = 0, vy = 0, vz = this._meanVentilation();
-
-        // Funnel toward the nearest fan as the air approaches the exhaust wall.
-        const zf = THREE.MathUtils.clamp((wz + hl) / L, 0, 1);
-        const spacing = W / (config.fanCount + 1);
-        let fanX = 0, best = Infinity;
-        for (let i = 1; i <= config.fanCount; i++) {
-            const fx = -W / 2 + i * spacing;
-            const d = Math.abs(wx - fx);
-            if (d < best) { best = d; fanX = fx; }
-        }
-        vx += (fanX - wx) * 0.4 * zf * config.fanSpeed;
-        vy += (config.fanHeight - wy) * 0.2 * zf * config.fanSpeed;
-
-        // Boussinesq buoyancy: free-convection plume velocity scale √(g·β·ΔT·H).
-        const T = (tHint !== undefined) ? tHint : this.sampleTemperature(wx, wy, wz);
-        const tRefK = 0.5 * (this.evap.padOutletTemp + this.env.outsideTemperature) + KELVIN;
-        const dT = (T + KELVIN) - tRefK;
-        const wBuoy = Math.sign(dT) * Math.sqrt(G * (1 / tRefK) * Math.abs(dT) * H);
-        vy += THREE.MathUtils.clamp(wBuoy, -1.2, 1.2);
-
-        return [vx, vy, vz];
+    velocityAt(wx, wy, wz) {
+        return this.flow.velocityAt(wx, wy, wz);
     }
 
     /**
@@ -168,8 +127,8 @@ export class ThermalField {
         const gFloor = config.solarGainCoefficient * gIncident;
         const gCover = (1 - config.solarGainCoefficient) * gIncident * 0.5;
 
-        const meanVz = this._meanVentilation();
         const stepDt = Math.min(dt, 0.5);              // cap for advection stability (CFL-ish)
+        const inletRate = THREE.MathUtils.clamp(config.fanSpeed * 3 * stepDt, 0, 1);
 
         // ground temperature lags toward the daily minimum (thermal mass)
         const tGround = config.outsideMinTemp + 0.5 * (tOut - config.outsideMinTemp);
@@ -185,7 +144,7 @@ export class ThermalField {
                     const wz = (z + 0.5) / rz * L - hl;
 
                     // --- Semi-Lagrangian advection along the flow ---
-                    const v = this.velocityAt(wx, wy, wz, this.field[idx]);
+                    const v = this.velocityAt(wx, wy, wz);
                     let T = this.sampleTemperature(wx - v[0] * stepDt, wy - v[1] * stepDt, wz - v[2] * stepDt);
 
                     // 1. Evaporative-pad inlet: incoming cooled air replaces interior air.
@@ -193,8 +152,7 @@ export class ThermalField {
                         && wy >= config.coolingPadElevation
                         && wy <= config.coolingPadElevation + config.coolingPadHeight
                         && Math.abs(wx) < hw * 0.9) {
-                        const rate = THREE.MathUtils.clamp((meanVz / cellSizeZ) * stepDt, 0, 1);
-                        T = T * (1 - rate) + padOutlet * rate;
+                        T = T * (1 - inletRate) + padOutlet * inletRate;
                     }
 
                     // 2. Floor: absorbs transmitted solar; coupled to ground thermal mass.

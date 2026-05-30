@@ -20,9 +20,8 @@ const PARTICLE_RADIUS = 0.08;
 const EXIT_DISTANCE = 1.5;        // how far past the fan an exiting particle travels before recycling
 
 export class ParticleSystem {
-    constructor(scene, fluidField, thermalField, greenhouse, environment, evaporativeCooling) {
+    constructor(scene, thermalField, greenhouse, environment, evaporativeCooling) {
         this.scene = scene;
-        this.fluid = fluidField;
         this.thermal = thermalField;
         this.greenhouse = greenhouse;
         this.env = environment;
@@ -211,7 +210,6 @@ export class ParticleSystem {
         const hl = config.greenhouseLength / 2;
         const r = PARTICLE_RADIUS;
         const fans = this.greenhouse.fans;
-        const useFluid = config.useFluidSimulation && this.fluid.available;
         const smoke = config.smokeMode;
         const drawTrails = this.showing && !smoke && config.showParticleTrails;
         this.trailMesh.visible = drawTrails; // reflect the live GUI toggle

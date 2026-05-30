@@ -9,7 +9,7 @@ import { config } from './config.js';
 import { Environment } from './environment.js';
 import { Greenhouse } from './greenhouse.js';
 import { EvaporativeCooling } from './evaporativeCooling.js';
-import { FluidField } from './fluidField.js';
+import { CFDSolver } from './cfd.js';
 import { ThermalField } from './thermalField.js';
 import { ParticleSystem } from './particleSystem.js';
 import { SliceView } from './sliceView.js';
@@ -64,10 +64,10 @@ class GreenhouseSimulation {
         this.environment = new Environment(this.scene);
         this.greenhouse = new Greenhouse(this.scene);
         this.evaporativeCooling = new EvaporativeCooling();
-        this.fluidField = new FluidField();
-        this.thermalField = new ThermalField(this.fluidField, this.evaporativeCooling, this.environment);
+        this.cfd = new CFDSolver();
+        this.thermalField = new ThermalField(this.cfd, this.evaporativeCooling, this.environment);
         this.particleSystem = new ParticleSystem(
-            this.scene, this.fluidField, this.thermalField,
+            this.scene, this.thermalField,
             this.greenhouse, this.environment, this.evaporativeCooling
         );
         this.sliceView = new SliceView(this.scene, this.thermalField);
@@ -80,7 +80,7 @@ class GreenhouseSimulation {
             onStructureChange: () => this._rebuildStructure(),
             onParticleCountChange: () => this.particleSystem.createParticles(),
             onResolutionChange: () => {
-                this.fluidField.init();
+                this.cfd.init();
                 this.thermalField.init();
                 this.smokeVolume.init();
             },
@@ -92,7 +92,7 @@ class GreenhouseSimulation {
     _rebuildStructure() {
         this.greenhouse.build();
         this.thermalField.init();
-        this.fluidField.init();
+        this.cfd.init();
         this.sliceView.rebuildMesh();
         this.smokeVolume.init();
         this.streaklines.init();
@@ -211,7 +211,7 @@ class GreenhouseSimulation {
         this.particleSystem.createParticles();
         this.environment.currentTime = 12;
         this.thermalField.reset();
-        this.fluidField.reset();
+        this.cfd.reset();
         this.streaklines.reset();
     }
 
@@ -232,7 +232,7 @@ class GreenhouseSimulation {
         this.environment.update(dt);
 
         const sdt = dt * PHYSICS_SCALE;
-        this.fluidField.update(sdt);
+        this.cfd.step(sdt, this.thermalField);
         this.particleSystem.update(sdt);
         this.thermalField.update(sdt);
 
