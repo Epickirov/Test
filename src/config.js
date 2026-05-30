@@ -56,8 +56,8 @@ export const config = {
 
     // ---- Airflow rendering ----
     smokeMode: false,              // render airflow as colored smoke instead of discrete particles
-    smokeSize: 1.4,                // smoke puff size (world units) — large enough to overlap into a haze
-    smokeOpacity: 0.5,
+    smokeSize: 1.4,                // smoke puff size (sprite fallback) / density scale (volumetric)
+    smokeOpacity: 0.7,
 };
 
 /**

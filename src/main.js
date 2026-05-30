@@ -14,6 +14,7 @@ import { ThermalField } from './thermalField.js';
 import { ParticleSystem } from './particleSystem.js';
 import { SliceView } from './sliceView.js';
 import { HotSpots } from './hotSpots.js';
+import { SmokeVolume } from './smokeVolume.js';
 import { Hud } from './hud.js';
 import { createControlPanel } from './controlPanel.js';
 
@@ -24,6 +25,7 @@ class GreenhouseSimulation {
     constructor() {
         this._frame = 0;
         this._lastTimestamp = 0;
+        this._sunDir = new THREE.Vector3();
 
         this._initRenderer();
         this._initSubsystems();
@@ -69,6 +71,7 @@ class GreenhouseSimulation {
         );
         this.sliceView = new SliceView(this.scene, this.thermalField);
         this.hotSpots = new HotSpots(this.scene, this.thermalField);
+        this.smokeVolume = new SmokeVolume(this.scene, this.thermalField);
         this.hud = new Hud(this.thermalField, this.evaporativeCooling, this.environment, this.particleSystem);
 
         this.gui = createControlPanel({
@@ -77,6 +80,7 @@ class GreenhouseSimulation {
             onResolutionChange: () => {
                 this.fluidField.init();
                 this.thermalField.init();
+                this.smokeVolume.init();
             },
         });
     }
@@ -87,6 +91,18 @@ class GreenhouseSimulation {
         this.thermalField.init();
         this.fluidField.init();
         this.sliceView.rebuildMesh();
+        this.smokeVolume.init();
+    }
+
+    /** Switch between particle and smoke airflow rendering (volumetric, or sprite fallback). */
+    _setSmoke(enabled) {
+        config.smokeMode = enabled;
+        if (this.smokeVolume.ok) {
+            this.smokeVolume.setVisible(enabled);
+            this.particleSystem.setVisible(!enabled);
+        } else {
+            this.particleSystem.setSmokeMode(enabled); // sprite fallback
+        }
     }
 
     _wireDomControls() {
@@ -103,7 +119,7 @@ class GreenhouseSimulation {
         const btnSmoke = document.getElementById('toggle-smoke');
         btnSmoke.addEventListener('click', () => {
             const smoke = !config.smokeMode;
-            this.particleSystem.setSmokeMode(smoke);
+            this._setSmoke(smoke);
             btnSmoke.classList.toggle('active', smoke);
             btnSmoke.textContent = smoke ? 'Particles' : 'Smoke';
         });
@@ -166,6 +182,11 @@ class GreenhouseSimulation {
         this.fluidField.update(sdt);
         this.particleSystem.update(sdt);
         this.thermalField.update(sdt);
+
+        if (config.smokeMode && this.smokeVolume.visible) {
+            this._sunDir.copy(this.environment.sun.position);
+            this.smokeVolume.update(sdt, this.camera, this._sunDir);
+        }
 
         // Stagger the expensive visual/UI updates across frames.
         if (config.showSlice && this._frame % 2 === 0) this.sliceView.updateTexture();
