@@ -3,12 +3,17 @@
  */
 import * as THREE from 'three';
 import { config } from './config.js';
+import { humidityRatioFromRH } from './utils.js';
+
+const CP_AIR = 1006;       // specific heat of air, J/(kg·K)
+const LAMBDA_V = 2.45e6;   // latent heat of vaporization of water, J/kg
 
 export class EvaporativeCooling {
     constructor() {
-        this.wetBulbTemp = 20;        // °C
-        this.padOutletTemp = 20;      // °C, air temperature leaving the pad
-        this.effectiveness = 0.85;    // current pad ε after RH derating
+        this.wetBulbTemp = 20;            // °C
+        this.padOutletTemp = 20;          // °C, air temperature leaving the pad
+        this.effectiveness = 0.85;        // current pad ε after RH derating
+        this.outletHumidityRatio = 0.010; // kg/kg, moisture content of pad-outlet air
     }
 
     /**
@@ -48,6 +53,15 @@ export class EvaporativeCooling {
 
         const sink = Math.min(this.wetBulbTemp, config.padWaterTemp);
         this.padOutletTemp = tDryBulb - this.effectiveness * (tDryBulb - sink);
+
+        // Moisture balance: the sensible heat removed evaporates water into the
+        // air stream (Δw = cp·ΔT/λ), capped just below saturation at the outlet
+        // temperature — excess condenses on the pad instead of entering the air.
+        const wIn = humidityRatioFromRH(tDryBulb, rh);
+        const wAdded = (CP_AIR * Math.max(tDryBulb - this.padOutletTemp, 0)) / LAMBDA_V;
+        const wSatOut = humidityRatioFromRH(this.padOutletTemp, 100);
+        this.outletHumidityRatio = Math.min(wIn + wAdded, wSatOut * 0.98);
+
         return this.padOutletTemp;
     }
 }

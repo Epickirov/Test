@@ -6,7 +6,7 @@
  */
 import * as THREE from 'three';
 import { config } from './config.js';
-import { writeHeatColor } from './utils.js';
+import { writeHeatColor, rhFromHumidityRatio } from './utils.js';
 
 const TEX_SIZE = 256;
 
@@ -116,6 +116,7 @@ export class SliceView {
         // Fixed, absolute colour scale so colour means temperature (not relative rank).
         const sMin = config.scaleMin;
         const sMax = Math.max(config.scaleMax, config.scaleMin + 2);
+        const rhMode = config.sliceField === 'rh';
 
         for (let py = 0; py < TEX_SIZE; py++) {
             for (let px = 0; px < TEX_SIZE; px++) {
@@ -139,7 +140,13 @@ export class SliceView {
 
                 const t = this.thermal.sampleTemperature(wx, wy, wz);
                 const idx = (py * TEX_SIZE + px) * 4;
-                writeHeatColor(data, idx, t, sMin, sMax);
+                if (rhMode) {
+                    // Relative humidity: red = dry … blue = saturated.
+                    const rh = rhFromHumidityRatio(t, this.thermal.sampleHumidity(wx, wy, wz));
+                    writeHeatColor(data, idx, 100 - rh, 0, 100);
+                } else {
+                    writeHeatColor(data, idx, t, sMin, sMax);
+                }
                 data[idx + 3] = 230;
             }
         }

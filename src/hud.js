@@ -4,7 +4,9 @@
  * per-frame update avoids repeated `getElementById` lookups.
  */
 import { config } from './config.js';
-import { calculateDayFactor } from './utils.js';
+import {
+    calculateDayFactor, rhFromHumidityRatio, dewPoint, vaporPressureDeficit,
+} from './utils.js';
 
 export class Hud {
     /**
@@ -24,6 +26,7 @@ export class Hud {
             'sky-temp-value', 'solar-irradiance',
             'db-temp', 'wb-temp', 'pad-eff', 'pad-outlet', 'wb-badge',
             'cool-zone-temp', 'mid-zone-temp', 'exhaust-zone-temp', 'delta-temp',
+            'int-rh', 'vpd', 'dewpoint', 'roof-temp', 'cond-badge',
             'pad-velocity', 'fan-velocity', 'scale-min', 'scale-max',
         ];
         this.el = {};
@@ -60,6 +63,31 @@ export class Hud {
         el['exhaust-zone-temp'].textContent = zones.exhaust.toFixed(1);
         el['delta-temp'].textContent = (zones.exhaust - zones.cool).toFixed(1);
 
+        // ---- Psychrometrics (sampled at canopy height, mid-greenhouse) ----
+        const tMid = this.thermal.sampleTemperature(0, 1.2, 0);
+        const wMid = this.thermal.sampleHumidity(0, 1.2, 0);
+        const rhIn = rhFromHumidityRatio(tMid, wMid);
+        const td = dewPoint(wMid);
+        const tRoof = this.thermal.sampleTemperature(0, config.greenhouseHeight - 0.15, 0);
+        const condensing = tRoof <= td + 0.2;
+
+        el['int-rh'].textContent = rhIn.toFixed(0);
+        el['vpd'].textContent = vaporPressureDeficit(tMid, wMid).toFixed(2);
+        el['dewpoint'].textContent = td.toFixed(1);
+        el['roof-temp'].textContent = tRoof.toFixed(1);
+
+        const cond = el['cond-badge'];
+        if (condensing) {
+            cond.className = 'wb-badge wb-poor';
+            cond.textContent = 'CONDENSING';
+        } else if (rhIn > 90) {
+            cond.className = 'wb-badge wb-fair';
+            cond.textContent = 'HUMID';
+        } else {
+            cond.className = 'wb-badge wb-good';
+            cond.textContent = 'DRY';
+        }
+
         // ---- Velocities ----
         const padArea = config.greenhouseWidth * config.coolingPadHeight;
         const fanArea = Math.PI * 0.49 * config.fanCount;
@@ -70,6 +98,8 @@ export class Hud {
         // ---- Scale legend ----
         el['scale-min'].textContent = config.scaleMin.toFixed(0);
         el['scale-max'].textContent = config.scaleMax.toFixed(0);
+
+        return { condensing };
     }
 
     /**

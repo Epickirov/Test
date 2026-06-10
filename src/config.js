@@ -46,8 +46,13 @@ export const config = {
     // ---- Thermal field ----
     thermalDiffusion: 0.08,        // m²/s effective (turbulent eddy diffusivity)
 
+    // ---- Plant canopy ----
+    showCanopy: true,              // benches with plants (transpiration, shading, flow drag)
+    canopyTranspiration: 0.5,      // fraction of intercepted solar released as latent heat
+
     // ---- Visualization ----
     sliceAxis: 'z',
+    sliceField: 't',               // 't' temperature | 'rh' relative humidity
     slicePosition: 0.5,
     sliceOpacity: 0.8,
     showSlice: false,

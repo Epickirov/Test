@@ -16,12 +16,13 @@
  * Pure JS (no three.js) so the solver can be unit-tested directly.
  */
 import { config } from './config.js';
-import { computeGridResolution } from './utils.js';
+import { computeGridResolution, inCanopy } from './utils.js';
 
 const PRESSURE_ITERS = 28;     // Gauss–Seidel iterations for the pressure solve
 const BASE_INFLOW = 11;        // pad jet speed (cells/s) at fanSpeed = 1
 const BUOYANCY = 0.9;          // Boussinesq coupling (cells/s² per K, amplified for visible convection)
 const VORTICITY = 0.18;        // vorticity-confinement strength (keeps swirls lively)
+const CANOPY_DRAG = 2.0;       // 1/s — foliage drag coefficient (plants slow the air)
 const MAX_DT = 0.4;            // sub-step cap (CFL)
 
 export class CFDSolver {
@@ -81,6 +82,21 @@ export class CFDSolver {
                 for (let f = 1; f <= config.fanCount; f++) {
                     const fanX = -hw + f * fanSpacing;
                     if (Math.hypot(wx - fanX, wy - config.fanHeight) < 0.7) { this.outlet.push(this._ix(i, j, nz - 1)); break; }
+                }
+            }
+        }
+
+        // Cells inside the plant canopy (foliage exerts drag on the flow).
+        const L = config.greenhouseLength;
+        const hl = L / 2;
+        this.canopyMask = [];
+        for (let k = 0; k < nz; k++) {
+            const wz = (k + 0.5) / nz * L - hl;
+            for (let j = 0; j < ny; j++) {
+                const wy = (j + 0.5) / ny * H;
+                for (let i = 0; i < nx; i++) {
+                    const wx = (i + 0.5) / nx * W - hw;
+                    if (inCanopy(wx, wy, wz)) this.canopyMask.push(this._ix(i, j, k));
                 }
             }
         }
@@ -213,6 +229,16 @@ export class CFDSolver {
             }
         }
         this._vorticityConfinement(dt);
+
+        // Canopy drag: foliage decelerates the air (unconditionally stable form).
+        if (this.canopyMask.length > 0) {
+            const damp = 1 / (1 + CANOPY_DRAG * dt);
+            for (const idx of this.canopyMask) {
+                this.u[idx] *= damp;
+                this.v[idx] *= damp;
+                this.w[idx] *= damp;
+            }
+        }
     }
 
     /** Vorticity confinement — re-inject small-scale swirl lost to numerical diffusion. */

@@ -47,9 +47,11 @@ src/
   utils.js            Grid resolution, day-night curve, heat-ramp colour
   environment.js      Sky, sun + shadows, ground, day-night cycle, outside temp
   greenhouse.js       Glazing shell, frame, cooling pad, fans (+ blade/label updates)
-  evaporativeCooling.js  Wet-bulb (Stull 2011) + pad-outlet model
-  fluidField.js       Wrapper around the external fluid solver (obstacles, in/out flow)
-  thermalField.js     3D temperature field: advection, diffusion, sources, buoyancy
+  evaporativeCooling.js  Wet-bulb (Stull 2011) + pad-outlet temperature & moisture
+  cfd.js              Real-time incompressible Navier-Stokes solver (stable fluids)
+  thermalField.js     3D temperature + humidity fields: advection, diffusion, sources
+  smokeVolume.js      Volumetric raymarched smoke (3D texture, self-shadowed)
+  streaklines.js      Velocity-coloured streamlines traced through the live flow
   particleSystem.js   Instanced airflow particles + additive trails
   sliceView.js        Canvas-textured thermal slice plane
   hotSpots.js         Hottest-cell markers

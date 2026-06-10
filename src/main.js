@@ -162,6 +162,11 @@ class GreenhouseSimulation {
         document.getElementById('slice-axis')
             .addEventListener('change', (e) => this.sliceView.setAxis(e.target.value));
 
+        document.getElementById('slice-field').addEventListener('change', (e) => {
+            config.sliceField = e.target.value;
+            if (config.showSlice) this.sliceView.updateTexture();
+        });
+
         document.getElementById('slice-pos').addEventListener('input', (e) => {
             this.sliceView.setPosition(e.target.value / 100);
             document.getElementById('slice-pos-label').textContent = `${e.target.value}%`;
@@ -247,7 +252,8 @@ class GreenhouseSimulation {
         if (config.showSlice && this._frame % 2 === 0) this.sliceView.updateTexture();
         if (config.showHotSpots) this.hotSpots.update(); // every frame → smooth marker tracking
         if (this._frame % 3 === 0) {
-            this.hud.update();
+            const { condensing } = this.hud.update();
+            this.greenhouse.setCondensation(condensing);
             this.greenhouse.update(this.thermalField);
         }
 

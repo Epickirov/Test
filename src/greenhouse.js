@@ -6,6 +6,7 @@
  */
 import * as THREE from 'three';
 import { config } from './config.js';
+import { canopyLayout } from './utils.js';
 
 export class Greenhouse {
     /** @param {THREE.Scene} scene */
@@ -14,6 +15,8 @@ export class Greenhouse {
         this.group = new THREE.Group();
         /** @type {THREE.Group[]} fan groups, in left-to-right creation order */
         this.fans = [];
+        this.glassMaterial = null;
+        this._condensing = false;
         this.build();
     }
 
@@ -42,6 +45,8 @@ export class Greenhouse {
             color: 0xffffff, metalness: 0.1, roughness: 0.1, transmission: 0.9, ior: 1.5,
             thickness: 0.5, transparent: true, opacity: 1, side: THREE.DoubleSide,
         });
+        this.glassMaterial = glassMat;
+        this._condensing = false;
 
         const structureGeo = new THREE.BoxGeometry(
             config.greenhouseWidth, config.greenhouseHeight, config.greenhouseLength
@@ -70,7 +75,92 @@ export class Greenhouse {
         this.group.add(pad);
 
         this._createFans();
+        this._createCanopy();
         this.scene.add(this.group);
+    }
+
+    /**
+     * Fog the glazing when interior moisture condenses on the cold cover —
+     * the classic misted-up greenhouse look.
+     */
+    setCondensation(on) {
+        if (!this.glassMaterial || this._condensing === on) return;
+        this._condensing = on;
+        this.glassMaterial.roughness = on ? 0.45 : 0.1;
+        this.glassMaterial.transmission = on ? 0.72 : 0.9;
+    }
+
+    /** Benches with instanced potted plants (the canopy the physics acts on). */
+    _createCanopy() {
+        if (!config.showCanopy) return;
+        const cl = canopyLayout();
+
+        const benchGeo = new THREE.BoxGeometry(cl.stripHalfWidth * 2, 0.07, cl.halfLength * 2);
+        const benchMat = new THREE.MeshStandardMaterial({ color: 0x8a6f4d, roughness: 0.9 });
+        const legGeo = new THREE.BoxGeometry(0.06, cl.benchY, 0.06);
+
+        const cols = Math.max(2, Math.floor((cl.halfLength * 2) / 0.55));
+        const rowOffsets = [-cl.stripHalfWidth * 0.45, cl.stripHalfWidth * 0.45];
+        const plantCount = cl.stripCenters.length * rowOffsets.length * cols;
+
+        const trunkGeo = new THREE.CylinderGeometry(0.02, 0.03, 0.22, 6);
+        const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2f, roughness: 1.0 });
+        const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, plantCount);
+
+        const foliageGeo = new THREE.IcosahedronGeometry(0.26, 1);
+        const foliageMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85 });
+        const foliage = new THREE.InstancedMesh(foliageGeo, foliageMat, plantCount);
+        foliage.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(plantCount * 3), 3);
+        foliage.castShadow = true;
+        foliage.receiveShadow = true;
+
+        const dummy = new THREE.Object3D();
+        const color = new THREE.Color();
+        const spacing = (cl.halfLength * 2) / cols;
+        let n = 0;
+
+        for (const xc of cl.stripCenters) {
+            const bench = new THREE.Mesh(benchGeo, benchMat);
+            bench.position.set(xc, cl.benchY, 0);
+            bench.castShadow = true;
+            bench.receiveShadow = true;
+            this.group.add(bench);
+
+            for (const zEnd of [-cl.halfLength + 0.15, cl.halfLength - 0.15]) {
+                for (const ox of [-cl.stripHalfWidth + 0.08, cl.stripHalfWidth - 0.08]) {
+                    const leg = new THREE.Mesh(legGeo, benchMat);
+                    leg.position.set(xc + ox, cl.benchY / 2, zEnd);
+                    this.group.add(leg);
+                }
+            }
+
+            for (const ox of rowOffsets) {
+                for (let c = 0; c < cols; c++) {
+                    const px = xc + ox + (Math.random() - 0.5) * 0.08;
+                    const pz = -cl.halfLength + (c + 0.5) * spacing + (Math.random() - 0.5) * 0.1;
+
+                    dummy.position.set(px, cl.benchY + 0.035 + 0.11, pz);
+                    dummy.scale.setScalar(1);
+                    dummy.rotation.set(0, 0, 0);
+                    dummy.updateMatrix();
+                    trunks.setMatrixAt(n, dummy.matrix);
+
+                    const s = 0.85 + Math.random() * 0.4;
+                    dummy.position.set(px, cl.benchY + 0.42 + (s - 1) * 0.1, pz);
+                    dummy.scale.set(s, s * 0.85, s);
+                    dummy.rotation.y = Math.random() * Math.PI;
+                    dummy.updateMatrix();
+                    foliage.setMatrixAt(n, dummy.matrix);
+
+                    color.setHSL(0.31 + Math.random() * 0.05, 0.55 + Math.random() * 0.2, 0.28 + Math.random() * 0.1);
+                    foliage.setColorAt(n, color);
+                    n++;
+                }
+            }
+        }
+
+        this.group.add(trunks);
+        this.group.add(foliage);
     }
 
     _createFans() {

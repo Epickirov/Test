@@ -26,7 +26,7 @@
         <div class="data-grid">
             <div class="data-item"><span class="data-label">Global Temp</span><span class="data-value"><span id="temp">25.0</span>°C</span></div>
             <div class="data-item"><span class="data-label">Time</span><span class="data-value" id="time">12:00</span></div>
-            <div class="data-item"><span class="data-label">Humidity</span><span class="data-value"><span id="humidity">50</span>%</span></div>
+            <div class="data-item"><span class="data-label">RH Outside</span><span class="data-value"><span id="humidity">50</span>%</span></div>
             <div class="data-item"><span class="data-label">LUX</span><span class="data-value" id="lux">30000</span></div>
         </div>
 
@@ -58,6 +58,14 @@
         <div class="zone-temp hot"><span>Exhaust Area</span><span><span id="exhaust-zone-temp">--</span>°C</span></div>
         <div class="zone-temp"><span>Δ Pad→Fan (gradient)</span><span><span id="delta-temp">--</span>°C</span></div>
 
+        <div class="section-title">Psychrometrics (Interior) <span id="cond-badge" class="wb-badge wb-good">DRY</span></div>
+        <div class="data-grid">
+            <div class="data-item"><span class="data-label">Interior RH</span><span class="data-value"><span id="int-rh">--</span>%</span></div>
+            <div class="data-item"><span class="data-label">VPD</span><span class="data-value"><span id="vpd">--</span> kPa</span></div>
+            <div class="data-item"><span class="data-label">Dewpoint</span><span class="data-value"><span id="dewpoint">--</span>°C</span></div>
+            <div class="data-item"><span class="data-label">Roof Air</span><span class="data-value"><span id="roof-temp">--</span>°C</span></div>
+        </div>
+
         <div class="section-title">Air Velocity</div>
         <div class="data-grid">
             <div class="data-item"><span class="data-label">Pad Entry</span><span class="data-value"><span id="pad-velocity">0.00</span> m/s</span></div>
@@ -85,6 +93,11 @@
     </div>
 
     <div id="slice-control">
+        <label>Field</label>
+        <select id="slice-field">
+            <option value="t">Temperature</option>
+            <option value="rh">Relative Humidity</option>
+        </select>
         <label>Slice Orientation</label>
         <select id="slice-axis">
             <option value="z">Longitudinal (along airflow)</option>

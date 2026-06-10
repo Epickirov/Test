@@ -16,6 +16,7 @@ export class Environment {
 
         this.sky = null;
         this.sun = null;
+        this.ambient = null;
 
         this._build();
     }
@@ -44,15 +45,40 @@ export class Environment {
         this.sun.shadow.bias = -0.0005;
         this.scene.add(this.sun);
 
-        this.scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+        this.ambient = new THREE.AmbientLight(0xffffff, 0.4);
+        this.scene.add(this.ambient);
 
         const floor = new THREE.Mesh(
             new THREE.PlaneGeometry(200, 200),
-            new THREE.MeshStandardMaterial({ color: 0x2d4c1e, roughness: 0.8, metalness: 0.1 })
+            new THREE.MeshStandardMaterial({
+                map: Environment._makeGrassTexture(),
+                roughness: 0.95,
+                metalness: 0.05,
+            })
         );
         floor.rotation.x = -Math.PI / 2;
         floor.receiveShadow = true;
         this.scene.add(floor);
+    }
+
+    /** Procedural speckled-grass texture for the ground plane. */
+    static _makeGrassTexture() {
+        const size = 128;
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#3b5a2a';
+        ctx.fillRect(0, 0, size, size);
+        const shades = ['#2f4d22', '#46682f', '#54763a', '#33531f', '#3f6128'];
+        for (let i = 0; i < 900; i++) {
+            ctx.fillStyle = shades[(Math.random() * shades.length) | 0];
+            ctx.fillRect(Math.random() * size, Math.random() * size, 1 + Math.random() * 2, 1 + Math.random() * 2);
+        }
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(28, 28);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        return tex;
     }
 
     /**
@@ -71,9 +97,12 @@ export class Environment {
 
         const dayFactor = calculateDayFactor(this.currentTime);
         this.sun.intensity = Math.max(0, dayFactor * 2);
+        this.ambient.intensity = 0.08 + 0.32 * dayFactor; // night scenes actually get dark
 
-        // outsideTemp is the user-set daytime peak; the air cools toward the
-        // night minimum as the sun drops. (At solar noon, outside == outsideTemp.)
-        this.outsideTemperature = config.outsideTemp - (1 - dayFactor) * (config.outsideTemp - config.outsideMinTemp);
+        // outsideTemp is the user-set daytime peak. Air temperature lags solar
+        // noon by ~2 h (ground/air thermal mass), so the daily peak lands at
+        // ~14:00 like a real diurnal cycle, easing to the night minimum.
+        const tempFactor = calculateDayFactor(((this.currentTime - 2) % 24 + 24) % 24);
+        this.outsideTemperature = config.outsideTemp - (1 - tempFactor) * (config.outsideTemp - config.outsideMinTemp);
     }
 }

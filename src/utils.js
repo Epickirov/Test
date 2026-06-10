@@ -77,3 +77,75 @@ function clamp01(v) {
     if (v <= 0 || Number.isNaN(v)) return 0;
     return v >= 1 ? 1 : v;
 }
+
+// ============================================================
+// PSYCHROMETRICS (SI; pressures in kPa, humidity ratio in kg/kg)
+// ============================================================
+
+/** Standard atmospheric pressure, kPa. */
+export const P_ATM = 101.325;
+
+/** Saturation vapor pressure (Tetens), kPa, for T in °C. */
+export function satVaporPressure(T) {
+    return 0.6108 * Math.exp((17.27 * T) / (T + 237.3));
+}
+
+/** Humidity ratio (kg water / kg dry air) from temperature + relative humidity. */
+export function humidityRatioFromRH(T, rh) {
+    const e = satVaporPressure(T) * rh / 100;
+    return (0.622 * e) / (P_ATM - e);
+}
+
+/** Relative humidity (%) from temperature + humidity ratio, clamped to [0, 100]. */
+export function rhFromHumidityRatio(T, w) {
+    const e = (w * P_ATM) / (0.622 + w);
+    const rh = (100 * e) / satVaporPressure(T);
+    return rh < 0 ? 0 : (rh > 100 ? 100 : rh);
+}
+
+/** Dew-point temperature (°C) of air with humidity ratio w. */
+export function dewPoint(w) {
+    const e = Math.max((w * P_ATM) / (0.622 + w), 1e-6);
+    const ln = Math.log(e / 0.6108);
+    return (237.3 * ln) / (17.27 - ln);
+}
+
+/** Vapor-pressure deficit (kPa) — the dryness "driving force" growers track. */
+export function vaporPressureDeficit(T, w) {
+    const e = (w * P_ATM) / (0.622 + w);
+    return Math.max(satVaporPressure(T) - e, 0);
+}
+
+// ============================================================
+// CANOPY GEOMETRY — shared by rendering, thermal sources and CFD drag
+// ============================================================
+
+/** Bench/plant layout derived from the greenhouse dimensions. */
+export function canopyLayout() {
+    const W = config.greenhouseWidth, L = config.greenhouseLength;
+    return {
+        stripCenters: [-W / 4, W / 4],  // two bench rows with a centre aisle
+        stripHalfWidth: W / 7,
+        halfLength: (L / 2) * 0.78,
+        benchY: 0.8,                    // bench-top height (m)
+        yLow: 0.85,                     // foliage band (m)
+        yHigh: 1.55,
+    };
+}
+
+/** True when (wx, wz) lies over a bench (used for floor shading). */
+export function inCanopyFootprint(wx, wz) {
+    if (!config.showCanopy) return false;
+    const c = canopyLayout();
+    if (Math.abs(wz) > c.halfLength) return false;
+    return Math.abs(wx - c.stripCenters[0]) < c.stripHalfWidth
+        || Math.abs(wx - c.stripCenters[1]) < c.stripHalfWidth;
+}
+
+/** True when the world point lies inside the foliage volume. */
+export function inCanopy(wx, wy, wz) {
+    if (!config.showCanopy) return false;
+    const c = canopyLayout();
+    if (wy < c.yLow || wy > c.yHigh) return false;
+    return inCanopyFootprint(wx, wz);
+}

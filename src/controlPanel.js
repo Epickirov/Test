@@ -36,6 +36,10 @@ export function createControlPanel({ onStructureChange, onParticleCountChange, o
     env.add(config, 'outsideMinTemp', 5, 30).name('Night Min (°C)');
     env.add(config, 'maxLux', 10000, 120000, 1000).name('Peak LUX');
 
+    const canopy = gui.addFolder('Plant Canopy');
+    canopy.add(config, 'showCanopy').name('Show Plants').onFinishChange(onStructureChange);
+    canopy.add(config, 'canopyTranspiration', 0, 0.9).name('Transpiration (latent)');
+
     const therm = gui.addFolder('Thermal Field');
     therm.add(config, 'thermalDiffusion', 0.001, 0.5).name('Eddy Diffusivity');
     therm.add(config, 'roofUValue', 1, 10).name('Roof U-value');
