@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Greenhouse Thermal Dynamics — Real-Time CFD</title>
+    <link rel="stylesheet" href="styles.css">
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.164.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.164.0/examples/jsm/",
+                "lil-gui": "https://unpkg.com/lil-gui@0.19.2/dist/lil-gui.esm.min.js"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="info-panel">
+        <h3 id="panel-header" title="Tap to collapse / expand">
+            <span>Thermal Dynamics</span>
+            <span class="h3-right"><span class="pulse" title="Live"></span><span class="collapse-chevron">▾</span></span>
+        </h3>
+
+        <div class="data-grid">
+            <div class="data-item"><span class="data-label">Global Temp</span><span class="data-value"><span id="temp">25.0</span>°C</span></div>
+            <div class="data-item"><span class="data-label">Time</span><span class="data-value" id="time">12:00</span></div>
+            <div class="data-item"><span class="data-label">RH Outside</span><span class="data-value"><span id="humidity">50</span>%</span></div>
+            <div class="data-item"><span class="data-label">LUX</span><span class="data-value" id="lux">30000</span></div>
+        </div>
+
+        <div class="section-title">Climate Controls</div>
+        <div class="control-row">
+            <label>Outside Air Temp <span class="control-value"><span id="ctl-outtemp-val">32</span>°C</span></label>
+            <input type="range" id="ctl-outtemp" min="10" max="45" step="1" value="32">
+        </div>
+        <div class="control-row">
+            <label>Outside Humidity <span class="control-value"><span id="ctl-humidity-val">50</span>%</span></label>
+            <input type="range" id="ctl-humidity" min="0" max="100" step="1" value="50">
+        </div>
+        <div class="control-row">
+            <label>Pad Water Temp <span class="control-value"><span id="ctl-padwater-val">20</span>°C</span></label>
+            <input type="range" id="ctl-padwater" min="5" max="30" step="1" value="20">
+        </div>
+
+        <div class="section-title">Evaporative Cooling <span id="wb-badge" class="wb-badge wb-good">EFFECTIVE</span></div>
+        <div class="data-grid">
+            <div class="data-item"><span class="data-label">Dry Bulb (out)</span><span class="data-value"><span id="db-temp">--</span>°C</span></div>
+            <div class="data-item"><span class="data-label">Wet Bulb</span><span class="data-value"><span id="wb-temp">--</span>°C</span></div>
+            <div class="data-item"><span class="data-label">Pad Effectiveness</span><span class="data-value"><span id="pad-eff">--</span>%</span></div>
+            <div class="data-item"><span class="data-label">Pad Outlet</span><span class="data-value"><span id="pad-outlet">--</span>°C</span></div>
+        </div>
+
+        <div class="section-title">Thermal Zones (live field)</div>
+        <div class="zone-temp cool"><span>Cooling Pad Area</span><span><span id="cool-zone-temp">--</span>°C</span></div>
+        <div class="zone-temp mid"><span>Center Zone</span><span><span id="mid-zone-temp">--</span>°C</span></div>
+        <div class="zone-temp hot"><span>Exhaust Area</span><span><span id="exhaust-zone-temp">--</span>°C</span></div>
+        <div class="zone-temp"><span>Δ Pad→Fan (gradient)</span><span><span id="delta-temp">--</span>°C</span></div>
+
+        <div class="section-title">Psychrometrics (Interior) <span id="cond-badge" class="wb-badge wb-good">DRY</span></div>
+        <div class="data-grid">
+            <div class="data-item"><span class="data-label">Interior RH</span><span class="data-value"><span id="int-rh">--</span>%</span></div>
+            <div class="data-item"><span class="data-label">VPD</span><span class="data-value"><span id="vpd">--</span> kPa</span></div>
+            <div class="data-item"><span class="data-label">Dewpoint</span><span class="data-value"><span id="dewpoint">--</span>°C</span></div>
+            <div class="data-item"><span class="data-label">Roof Air</span><span class="data-value"><span id="roof-temp">--</span>°C</span></div>
+        </div>
+
+        <div class="section-title">Air Velocity</div>
+        <div class="data-grid">
+            <div class="data-item"><span class="data-label">Pad Entry</span><span class="data-value"><span id="pad-velocity">0.00</span> m/s</span></div>
+            <div class="data-item"><span class="data-label">Fan Exit</span><span class="data-value"><span id="fan-velocity">0.00</span> m/s</span></div>
+        </div>
+
+        <div class="section-title">Field Temperature Scale</div>
+        <div id="thermal-legend">
+            <div class="legend-bar"></div>
+            <div class="legend-labels">
+                <span><span id="scale-min">15</span>°C</span>
+                <span>cold</span>
+                <span>warm</span>
+                <span><span id="scale-max">40</span>°C</span>
+            </div>
+        </div>
+
+        <div class="section-title">Status</div>
+        <div class="data-grid">
+            <div class="data-item"><span class="data-label">Active Particles</span><span class="data-value" id="active-particles">0</span></div>
+            <div class="data-item"><span class="data-label">Outside Temp</span><span class="data-value"><span id="outside-temp-value">--</span>°C</span></div>
+            <div class="data-item"><span class="data-label">Sky Temp (radiative)</span><span class="data-value"><span id="sky-temp-value">--</span>°C</span></div>
+            <div class="data-item"><span class="data-label">Solar Irradiance</span><span class="data-value"><span id="solar-irradiance">--</span> W/m²</span></div>
+        </div>
+    </div>
+
+    <div id="slice-control">
+        <label>Field</label>
+        <select id="slice-field">
+            <option value="t">Temperature</option>
+            <option value="rh">Relative Humidity</option>
+        </select>
+        <label>Slice Orientation</label>
+        <select id="slice-axis">
+            <option value="z">Longitudinal (along airflow)</option>
+            <option value="x">Cross-section (width)</option>
+            <option value="y">Horizontal (canopy level)</option>
+        </select>
+        <label>Slice Position <span class="slice-pos-value" id="slice-pos-label">50%</span></label>
+        <input type="range" id="slice-pos" min="0" max="100" value="50">
+        <label>Opacity <span class="slice-pos-value" id="slice-op-label">80%</span></label>
+        <input type="range" id="slice-opacity" min="20" max="100" value="80">
+    </div>
+
+    <div id="controls">
+        <button id="reset-simulation">Reset</button>
+        <button id="toggle-particles" class="btn-toggle">Hide Particles</button>
+        <button id="toggle-smoke" class="btn-smoke">Smoke</button>
+        <button id="toggle-streak" class="btn-streak">Streaklines</button>
+        <button id="toggle-slice" class="btn-slice">Thermal Slice</button>
+        <button id="toggle-iso" class="btn-slice">Hot-Spot Markers</button>
+    </div>
+
+    <!-- External fluid solver (classic script → exposes window.FluidSimulation) -->
+    <script src="https://cdn.jsdelivr.net/gh/amandaghassaei/FluidSimulation@0.0.8/dist/fluid-simulation.min.js"></script>
+
+    <!-- Application (ES modules; resolved via the import map above) -->
+    <script type="module" src="src/main.js"></script>
+</body>
+</html>
