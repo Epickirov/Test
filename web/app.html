@@ -255,7 +255,8 @@ async function syncDoc(inst){
   if(!(window.HDY&&HDY.isAuthed())) return;
   try{
     if(inst.srvId){ await HDY.updateDocument(inst.srvId, docPayload(inst)); }
-    else { const row=await HDY.createDocument(docPayload(inst)); if(row&&row.id){ inst.srvId=row.id; persist(); } }
+    else { const row=await HDY.createDocument(docPayload(inst));
+      if(row&&row.id){ const cur=instances.find(x=>x.id===inst.id)||inst; cur.srvId=row.id; persist(); } }
   }catch(e){}
 }
 function submitForm(data){

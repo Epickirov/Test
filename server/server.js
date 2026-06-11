@@ -62,6 +62,9 @@ async function api(req, res, url) {
   const p = seg.slice(1);                               // drop 'api'
   const method = req.method;
 
+  /* ---- public: health probe (lets the UI detect a live backend) ---- */
+  if (p[0] === 'health') return send(res, 200, { ok: true, ts: Date.now() });
+
   /* ---- public: signup / login ---- */
   if (p[0] === 'auth') {
     if (p[1] === 'signup' && method === 'POST') return signup(req, res);
@@ -158,9 +161,9 @@ async function api(req, res, url) {
       if (!email) return send(res, 400, { error: 'email required' });
       let u = Store.find('users', x => x.email === email);
       if (!u) {
-        // create a pending user with a temp password the inviter sets/share
+        // create the invited user with a temp password (they log in & should change it)
         u = await Store.insert('users', { email, name: b.name || email.split('@')[0],
-          password: hashPassword(b.tempPassword || 'changeme123'), orgId: ctx.orgId, pending: true });
+          password: hashPassword(b.tempPassword || 'changeme123'), orgId: ctx.orgId });
       }
       if (!Store.find('members', m => m.userId === u.id && m.orgId === ctx.orgId)) {
         await Store.insert('members', { orgId: ctx.orgId, userId: u.id, role: b.role || 'member' });
@@ -190,16 +193,10 @@ async function signup(req, res) {
   const password = b.password || '';
   const orgName = (b.orgName || '').trim();
   if (!email || !password || password.length < 6) return send(res, 400, { error: '邮箱和至少 6 位密码必填' });
-  if (Store.find('users', u => u.email === email && !u.pending)) return send(res, 409, { error: '该邮箱已注册' });
+  if (Store.find('users', u => u.email === email)) return send(res, 409, { error: '该邮箱已注册，请直接登录' });
 
   const org = await Store.insert('orgs', { name: orgName || (email.split('@')[0] + ' 的团队'), plan: 'free' });
-  // reuse a pending invited user if present, else create
-  let user = Store.find('users', u => u.email === email);
-  if (user && user.pending) {
-    user = await Store.update('users', user.id, { name: b.name || user.name, password: hashPassword(password), orgId: org.id, pending: false });
-  } else {
-    user = await Store.insert('users', { email, name: b.name || email.split('@')[0], password: hashPassword(password), orgId: org.id });
-  }
+  const user = await Store.insert('users', { email, name: b.name || email.split('@')[0], password: hashPassword(password), orgId: org.id });
   await Store.insert('members', { orgId: org.id, userId: user.id, role: 'owner' });
   audit(org.id, user.id, 'org.create', { name: org.name });
   const token = signToken({ uid: user.id });
@@ -209,7 +206,7 @@ async function signup(req, res) {
 async function login(req, res) {
   const b = await readBody(req);
   const email = (b.email || '').toLowerCase().trim();
-  const user = Store.find('users', u => u.email === email && !u.pending);
+  const user = Store.find('users', u => u.email === email);
   if (!user || !verifyPassword(b.password || '', user.password)) return send(res, 401, { error: '邮箱或密码错误' });
   const mem = Store.find('members', m => m.userId === user.id && m.orgId === user.orgId);
   const org = Store.find('orgs', o => o.id === user.orgId);

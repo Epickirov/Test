@@ -35,6 +35,15 @@
     isAuthed() { return !!token(); },
     me() { return read(LS.me, null); },
     online() { return !!API; },
+    // actually probe the backend (used to decide whether to show the login gate)
+    async ping() {
+      if (!API) return false;
+      try {
+        const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 2500);
+        const res = await fetch(API + '/api/health', { signal: ctrl.signal });
+        clearTimeout(t); return res.ok;
+      } catch (e) { return false; }
+    },
 
     async signup(payload) { const r = await apiFetch('/auth/signup', { method: 'POST', body: payload }); afterAuth(r); return r; },
     async login(payload) { const r = await apiFetch('/auth/login', { method: 'POST', body: payload }); afterAuth(r); return r; },
@@ -48,11 +57,15 @@
       if (cfg.flow) write(LS.flow, stripMeta(cfg.flow));
       const docs = await apiFetch('/documents');
       // map server documents -> the instance shape the UI expects
-      write(LS.inst, docs.map(d => ({
+      const server = docs.map(d => ({
         id: d.id, srvId: d.id, no: d.no, title: d.title, data: d.data, initiator: d.initiator,
         createdAt: d.createdAt, status: d.status, cursor: d.cursor, steps: d.steps,
         resubmittedAt: d.resubmittedAt,
-      })));
+      }));
+      // keep any local docs still in-flight (submitted but not yet assigned a
+      // server id) so a background pull can't make a just-submitted doc vanish
+      const pending = read(LS.inst, []).filter(l => !l.srvId);
+      write(LS.inst, [...pending, ...server]);
       bumpSync();
     },
 

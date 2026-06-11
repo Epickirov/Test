@@ -367,14 +367,22 @@ function bootApp(){
   renderNav(); paintMe();
   if(!location.hash){ location.hash='overview'; }
   route();
-  // if signed in, pull latest org data from server periodically
-  if(HDY.isAuthed()){ HDY.pull().then(()=>{updateBadges(); if(document.getElementById('overview').classList.contains('show'))renderOverview();}).catch(()=>{}); setInterval(()=>HDY.pull().catch(()=>{}), 15000); }
+  // if signed in, pull latest org data from server now + periodically.
+  // (pull writes localStorage → iframes refresh via storage events; the shell
+  //  isn't notified of its own writes, so refresh it explicitly here.)
+  if(HDY.isAuthed()){
+    const refresh=()=>{ updateBadges(); if(document.getElementById('overview').classList.contains('show')) renderOverview(); };
+    HDY.pull().then(refresh).catch(()=>{});
+    setInterval(()=>HDY.pull().then(refresh).catch(()=>{}), 15000);
+  }
 }
-function start(){
-  // Decide: real auth (server available & not in demo) vs local demo mode.
-  const demo = localStorage.getItem('hdy.demoMode')==='1';
-  if(HDY.online() && !HDY.isAuthed() && !demo){ showAuth(); }
-  else { bootApp(); }
+async function start(){
+  // Decide: real auth vs local demo. Only show the login wall if a backend is
+  // actually reachable — otherwise (static hosting like githack) boot locally.
+  if(HDY.isAuthed()){ bootApp(); return; }
+  if(localStorage.getItem('hdy.demoMode')==='1'){ bootApp(); return; }
+  const hasServer = await HDY.ping();
+  if(hasServer){ showAuth(); } else { bootApp(); }
 }
 start();
 if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{})); }
