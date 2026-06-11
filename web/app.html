@@ -10,12 +10,29 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <meta name="apple-mobile-web-app-title" content="好队友" />
+<script>try{if(window.self!==window.top)document.documentElement.dataset.embed=1;}catch(e){document.documentElement.dataset.embed=1;}</script>
+<style>
+  /* When embedded in the desktop shell, stop looking like a phone-in-a-void:
+     fill the frame, drop the fake-phone chrome, hide redundant app/tab bars
+     (the shell's sidebar + topbar already provide navigation & title). */
+  html[data-embed] body{background:var(--bg,#f3f4f6)}
+  html[data-embed] .phone{max-width:none;box-shadow:none;height:100vh;height:100dvh}
+  html[data-embed] .appbar{display:none}
+  html[data-embed] .tabbar{display:none}
+  html[data-embed] .view{max-width:760px;margin:0 auto;width:100%;padding:20px}
+  html[data-embed] .screen{max-width:none}
+  html[data-embed] .screen .sbody,html[data-embed] .screen .foot{max-width:760px;margin-left:auto;margin-right:auto;width:100%}
+</style>
 <style>
   :root{
     --accent:#1677ff;--accent-weak:#e8f1ff;--bg:#f3f4f6;--panel:#fff;--border:#ebedf0;
     --text:#1f2329;--muted:#8a8f99;--danger:#e5484d;--green:#0a8f4e;--amber:#d48806;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .li,.tcard,.act,.big-btn,.me-row{transition:transform .08s ease,background .15s ease,box-shadow .12s ease}
+  .li:active,.tcard:active,.big-btn:active{transform:scale(.985)}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
   html,body{margin:0;height:100%}
   body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
     background:#dfe3e8;color:var(--text);font-size:14px}

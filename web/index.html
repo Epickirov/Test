@@ -13,8 +13,15 @@
     --side:#1f2733;--side-hi:#2b3543;--side-mut:#9aa7b8}
   *{box-sizing:border-box}
   html,body{margin:0;height:100%}
-  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);background:var(--bg);font-size:13px}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);background:var(--bg);font-size:13.5px;-webkit-font-smoothing:antialiased}
   a{text-decoration:none;color:inherit}
+  /* keyboard accessibility + tactile press feedback across interactive chrome */
+  button{font-family:inherit}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+  .nav button,.topbar .tbtn,.act{transition:transform .08s ease,background .15s ease,box-shadow .12s ease,border-color .12s ease}
+  .nav button:active,.topbar .tbtn:active{transform:scale(.97)}
+  .act:active{transform:translateY(0) scale(.99)}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
   .shell{display:flex;height:100vh;height:100dvh;overflow:hidden}
   /* sidebar */
   .side{width:220px;flex:0 0 auto;background:var(--side);color:#fff;display:flex;flex-direction:column;transition:width .18s}
@@ -51,10 +58,18 @@
   .topbar .tbtn{border:1px solid var(--border);background:#fff;color:var(--text);padding:6px 12px;border-radius:7px;cursor:pointer;font-size:13px}
   .topbar .tbtn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
   .content{flex:1;min-height:0;position:relative;background:var(--bg)}
-  iframe#frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff;display:none}
+  iframe#frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:var(--bg);display:none;opacity:0;transition:opacity .2s ease}
+  iframe#frame.show{display:block;opacity:1}
+  iframe#frame.loading{opacity:0}
+  /* loading shimmer while a module frame boots (kills the white flash) */
+  .floader{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:var(--bg);z-index:2}
+  .floader.show{display:flex}
+  .floader .spin{width:30px;height:30px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
   /* overview */
   .ov{position:absolute;inset:0;overflow:auto;padding:22px;display:none}
-  .ov.show{display:block}
+  .ov.show{display:block;animation:fadeUp .26s ease}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
   iframe#frame.show{display:block}
   .ov .head{display:flex;align-items:flex-end;gap:12px;margin-bottom:18px}
   .ov .head h1{margin:0;font-size:20px}
@@ -114,6 +129,7 @@
     </div>
     <div class="content">
       <div class="ov" id="overview"></div>
+      <div class="floader" id="floader"><div class="spin"></div></div>
       <iframe id="frame" title="模块"></iframe>
     </div>
   </div>
@@ -129,6 +145,8 @@
 const NAV=[
   {id:'overview',icon:'🏠',label:'概览',native:true},
   {id:'todo',icon:'✅',label:'待办审批',src:'app.html?tab=todo',badge:'pending'},
+  {id:'msg',icon:'🔔',label:'消息中心',src:'app.html?tab=msg',badge:'unread'},
+  {sep:'数据'},
   {id:'manage',icon:'📊',label:'数据管理',src:'manage.html'},
   {id:'views',icon:'▦',label:'看板 / 多视图',src:'views.html'},
   {id:'dashboard',icon:'📈',label:'数据看板',src:'dashboard.html'},
@@ -168,8 +186,8 @@ function renderNav(){
 function setActive(id){ document.querySelectorAll('.nav button[data-id]').forEach(b=>b.classList.toggle('on',b.dataset.id===id)); }
 function updateBadges(){
   const instances=read('hdy.instances.v1',[]); const notifs=read('hdy.notif.v1',[]);
-  const pending=instances.filter(isPending).length; const unread=notifs.filter(n=>!n.read).length;
-  document.querySelectorAll('[data-badge="pending"]').forEach(b=>{b.textContent=pending;b.classList.toggle('show',pending>0);});
+  const counts={pending:instances.filter(isPending).length, unread:notifs.filter(n=>!n.read).length};
+  document.querySelectorAll('[data-badge]').forEach(b=>{const n=counts[b.dataset.badge]||0;b.textContent=n>99?'99+':n;b.classList.toggle('show',n>0);});
 }
 
 /* ---- router ---- */
@@ -180,11 +198,18 @@ function route(){
   if(n.href){ setActive('overview'); location.hash='overview'; return; }
   document.getElementById('crumb').textContent=n.label;
   setActive(n.id);
-  const ov=document.getElementById('overview'), fr=document.getElementById('frame');
-  if(n.native){ fr.classList.remove('show'); ov.classList.add('show'); renderOverview(); }
-  else{ ov.classList.remove('show'); const src=n.src; if(fr.getAttribute('src')!==src) fr.setAttribute('src',src); fr.classList.add('show'); }
+  const ov=document.getElementById('overview'), fr=document.getElementById('frame'), fl=document.getElementById('floader');
+  if(n.native){ fr.classList.remove('show'); fl.classList.remove('show'); ov.classList.add('show'); renderOverview(); }
+  else{
+    ov.classList.remove('show');
+    const src=n.src;
+    if(fr.getAttribute('src')!==src){ fl.classList.add('show'); fr.classList.remove('show'); fr.setAttribute('src',src); }
+    else { fr.classList.add('show'); fl.classList.remove('show'); }
+  }
 }
 window.addEventListener('hashchange',route);
+// hide the loader once the framed module finishes booting
+document.getElementById('frame').addEventListener('load',()=>{ document.getElementById('floader').classList.remove('show'); document.getElementById('frame').classList.add('show'); });
 
 /* ---- overview ---- */
 function renderOverview(){
