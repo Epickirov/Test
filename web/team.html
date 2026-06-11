@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>body.embedded .topbar a.btn[href$=".html"]{display:none!important}</style>
+<script src="sync.js"></script>
+<script>try{if(window.self!==window.top)document.documentElement.dataset.embed=1;}catch(e){document.documentElement.dataset.embed=1;}
+addEventListener('DOMContentLoaded',function(){if(document.documentElement.dataset.embed)document.body.classList.add('embedded');});</script>
+<title>团队管理 · Team</title>
+<style>
+  :root{--accent:#1677ff;--accent-weak:#e8f1ff;--bg:#f5f6f8;--panel:#fff;--border:#e6e8eb;
+    --text:#1f2329;--muted:#8a8f99;--green:#0a8f4e;--amber:#d48806;--danger:#e5484d}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);background:var(--bg);font-size:13px}
+  .app{display:flex;flex-direction:column;height:100vh}
+  .topbar{display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--border);flex:0 0 auto}
+  .topbar .logo{font-weight:700;color:var(--accent);font-size:15px}
+  .topbar .spacer{flex:1}
+  .btn{border:1px solid var(--border);background:#fff;color:var(--text);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-block}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .wrap{flex:1;overflow:auto;padding:20px;max-width:880px;margin:0 auto;width:100%}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:16px}
+  .card h3{margin:0 0 12px;font-size:15px;display:flex;align-items:center}
+  .card h3 .sub{margin-left:auto;font-size:12px;color:var(--muted);font-weight:400}
+  table{width:100%;border-collapse:collapse}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--border);font-size:13px}
+  th{color:var(--muted);font-weight:600}
+  .role{display:inline-block;border-radius:10px;padding:1px 9px;font-size:11px;font-weight:600}
+  .role.owner{background:#f0eefc;color:#6b46c1}.role.admin{background:var(--accent-weak);color:var(--accent)}
+  .role.member{background:#eaf7ee;color:var(--green)}.role.viewer{background:#f1f2f4;color:var(--muted)}
+  .invite{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+  .invite .f{display:flex;flex-direction:column;gap:4px}
+  .invite label{font-size:11px;color:var(--muted)}
+  .invite input,.invite select{padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px}
+  .log{font-size:12px}
+  .log .a{font-weight:600}.log .t{color:var(--muted)}
+  .empty{color:var(--muted);text-align:center;padding:30px}
+  .gate{text-align:center;padding:80px 20px;color:var(--muted)}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1f2329;color:#fff;padding:9px 16px;border-radius:8px;opacity:0;transition:.25s;pointer-events:none;z-index:90}.toast.show{opacity:.95}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar"><span class="logo">团队管理</span>
+    <a class="btn" href="index.html">🏠 首页</a><span class="spacer"></span>
+    <span class="muted" id="orgName"></span>
+  </div>
+  <div class="wrap" id="wrap"></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),1600);}
+function fmt(ts){const d=new Date(ts);const p=n=>('0'+n).slice(-2);return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;}
+const roleLabel=r=>({owner:'所有者',admin:'管理员',member:'成员',viewer:'访客'})[r]||r;
+
+async function render(){
+  const wrap=document.getElementById('wrap');
+  if(!(window.HDY&&HDY.isAuthed())){
+    wrap.innerHTML=`<div class="gate">👥 团队管理需要登录。<br>本地演示模式下没有多用户团队。<br><br><a class="btn primary" href="index.html">去登录 / 注册团队</a></div>`;
+    return;
+  }
+  const me=HDY.me()||{}; document.getElementById('orgName').textContent=(me.org&&me.org.name)||'';
+  const myRole=me.role||'member';
+  const canManage=['owner','admin'].includes(myRole);
+  wrap.innerHTML='<div class="card"><div class="empty">加载中…</div></div>';
+  let members=[], log=[];
+  try{ members=await HDY.members(); }catch(e){}
+  try{ if(canManage) log=await HDY.audit(); }catch(e){}
+
+  wrap.innerHTML=`
+    <div class="card">
+      <h3>成员 <span class="sub">${members.length} 人 · 你的角色：${roleLabel(myRole)}</span></h3>
+      <table><thead><tr><th>姓名</th><th>邮箱</th><th>角色</th></tr></thead><tbody>
+        ${members.map(m=>`<tr><td>${esc(m.name)}</td><td>${esc(m.email)}</td><td><span class="role ${m.role}">${roleLabel(m.role)}</span></td></tr>`).join('')}
+      </tbody></table>
+    </div>
+    ${canManage?`<div class="card">
+      <h3>邀请成员</h3>
+      <div class="invite">
+        <div class="f"><label>邮箱</label><input id="iEmail" type="email" placeholder="member@company.com"></div>
+        <div class="f"><label>姓名</label><input id="iName" placeholder="可选"></div>
+        <div class="f"><label>角色</label><select id="iRole">
+          <option value="member">成员（可发起/审批）</option>
+          <option value="admin">管理员（可设计/管理）</option>
+          <option value="viewer">访客（只读）</option></select></div>
+        <div class="f"><label>初始密码</label><input id="iPw" placeholder="默认 changeme123"></div>
+        <button class="btn primary" id="iGo">邀请</button>
+      </div>
+      <div class="muted" style="margin-top:10px;font-size:12px">邀请会创建账号；把邮箱与初始密码告知对方，登录后即可加入本团队。</div>
+    </div>`:''}
+    ${canManage?`<div class="card">
+      <h3>操作审计 <span class="sub">最近 ${log.length} 条</span></h3>
+      ${log.length? `<table><thead><tr><th>时间</th><th>操作</th><th>详情</th></tr></thead><tbody>
+        ${log.map(a=>`<tr class="log"><td class="t">${fmt(a.at)}</td><td class="a">${esc(a.action)}</td><td class="t">${esc(JSON.stringify(a.detail))}</td></tr>`).join('')}
+      </tbody></table>`:'<div class="empty">暂无审计记录</div>'}
+    </div>`:''}`;
+
+  if(canManage){
+    document.getElementById('iGo').onclick=async()=>{
+      const email=document.getElementById('iEmail').value.trim();
+      if(!email){toast('请输入邮箱');return;}
+      try{ await HDY.invite({email, name:document.getElementById('iName').value.trim(),
+        role:document.getElementById('iRole').value, tempPassword:document.getElementById('iPw').value.trim()||undefined});
+        toast('已邀请 '+email); render();
+      }catch(e){ toast(e.message||'邀请失败'); }
+    };
+  }
+}
+render();
+</script>
+</body>
+</html>

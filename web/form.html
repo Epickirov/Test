@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>body.embedded .topbar a.btn[href$=".html"]{display:none!important}</style>
+<script src="sync.js"></script>
 <script>try{if(window.self!==window.top)document.documentElement.dataset.embed=1;}catch(e){document.documentElement.dataset.embed=1;}
 addEventListener('DOMContentLoaded',function(){if(document.documentElement.dataset.embed)document.body.classList.add('embedded');});</script>
 <title>表单设计器 · Form Builder</title>
@@ -316,7 +317,8 @@ function defaultField(type){
 }
 
 /* ---- 4. Persistence ---- */
-function save(){ localStorage.setItem('hdy.formbuilder.v1', JSON.stringify(state)); }
+let _pushT; function save(){ localStorage.setItem('hdy.formbuilder.v1', JSON.stringify(state));
+  if(window.HDY&&HDY.isAuthed()){ clearTimeout(_pushT); _pushT=setTimeout(()=>HDY.pushConfig().catch(()=>{}),800); } }
 function load(){ try{ return JSON.parse(localStorage.getItem('hdy.formbuilder.v1')); }catch(e){ return null; } }
 
 /* ---- 5. Palette ---- */

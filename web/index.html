@@ -7,6 +7,7 @@
 <title>好队友 · 工作台</title>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icons/icon-180.png" />
+<script src="sync.js"></script>
 <style>
   :root{--accent:#1677ff;--accent2:#0958d9;--bg:#f3f5f8;--panel:#fff;--border:#e6e8eb;
     --text:#1f2329;--muted:#8a8f99;--green:#0a8f4e;--amber:#d48806;--danger:#e5484d;
@@ -22,6 +23,24 @@
   .nav button:active,.topbar .tbtn:active{transform:scale(.97)}
   .act:active{transform:translateY(0) scale(.99)}
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  /* auth gate */
+  .auth{position:fixed;inset:0;z-index:100;background:linear-gradient(135deg,#1d3a6e,#0a52d0);display:none;align-items:center;justify-content:center;padding:20px}
+  .auth.show{display:flex}
+  .auth-card{background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);width:400px;max-width:94vw;padding:30px 28px}
+  .auth-card .logo{width:48px;height:48px;border-radius:13px;background:linear-gradient(135deg,#2a86ff,#0958d9);display:flex;align-items:center;justify-content:center;font-size:24px;color:#fff;margin-bottom:14px}
+  .auth-card h2{margin:0 0 4px;font-size:20px}
+  .auth-card .sub{color:var(--muted);font-size:13px;margin-bottom:20px}
+  .auth-card label{display:block;font-size:12px;color:var(--muted);margin:12px 0 5px;font-weight:600}
+  .auth-card input{width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:9px;font-size:14px}
+  .auth-card input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-weak,#e8f1ff)}
+  .auth-card .go{width:100%;margin-top:18px;padding:12px;background:var(--accent);color:#fff;border:0;border-radius:9px;font-size:15px;font-weight:600;cursor:pointer}
+  .auth-card .go:disabled{opacity:.6;cursor:default}
+  .auth-card .alt{text-align:center;margin-top:14px;font-size:13px;color:var(--muted)}
+  .auth-card .alt a{color:var(--accent);cursor:pointer;font-weight:600}
+  .auth-card .err{background:#fde8e8;color:var(--danger);border-radius:8px;padding:8px 10px;font-size:13px;margin-top:14px;display:none}
+  .auth-card .err.show{display:block}
+  .auth-card .demo{text-align:center;margin-top:16px;font-size:12px}
+  .auth-card .demo a{color:var(--muted);cursor:pointer;text-decoration:underline}
   .shell{display:flex;height:100vh;height:100dvh;overflow:hidden}
   /* sidebar */
   .side{width:220px;flex:0 0 auto;background:var(--side);color:#fff;display:flex;flex-direction:column;transition:width .18s}
@@ -112,6 +131,18 @@
 </style>
 </head>
 <body>
+<div class="auth" id="auth">
+  <div class="auth-card">
+    <div class="logo">✓</div>
+    <h2 id="authTitle">登录 好队友</h2>
+    <div class="sub" id="authSub">低代码审批工作台 · 团队协作版</div>
+    <div id="authFields"></div>
+    <button class="go" id="authGo">登录</button>
+    <div class="err" id="authErr"></div>
+    <div class="alt" id="authAlt"></div>
+    <div class="demo" id="authDemo"><a id="demoLink">跳过，先用本地演示模式 →</a></div>
+  </div>
+</div>
 <div class="shell" id="shell">
   <aside class="side">
     <div class="brand"><div class="logo">✓</div><div><b>好队友</b><div class="sub">低代码工作台</div></div></div>
@@ -153,6 +184,8 @@ const NAV=[
   {sep:'设计'},
   {id:'form',icon:'🧩',label:'表单设计器',src:'form.html'},
   {id:'flow',icon:'🔀',label:'审批流程',src:'flow.html'},
+  {sep:'团队',authed:true},
+  {id:'team',icon:'👥',label:'团队管理',src:'team.html',authed:true},
   {sep:''},
   {id:'mobile',icon:'📱',label:'在手机中打开',href:'app.html',blank:true},
 ];
@@ -172,7 +205,8 @@ function statusPill(s){return s==='approved'?'<span class="pill ok">已通过</s
 /* ---- sidebar ---- */
 function renderNav(){
   const el=document.getElementById('nav');
-  el.innerHTML=NAV.map(n=> n.sep!==undefined
+  const authed=!!(window.HDY&&HDY.isAuthed());
+  el.innerHTML=NAV.filter(n=>!n.authed||authed).map(n=> n.sep!==undefined
     ? `<div class="sep">${esc(n.sep||'')}</div>`
     : `<button data-id="${n.id}"><span class="ic">${n.icon}</span><span class="lbl">${esc(n.label)}</span>${n.badge?`<span class="badge" data-badge="${n.badge}"></span>`:''}</button>`
   ).join('');
@@ -262,8 +296,57 @@ function renderOverview(){
 }
 
 /* ---- identity ---- */
-function paintMe(){ const me=read('hdy.user.v1','我'); document.getElementById('meNm').textContent=me; document.getElementById('meAv').textContent=(me[0]||'我'); }
-document.getElementById('meSwitch').onclick=()=>{ const v=prompt('切换当前身份（用于发起/审批）', read('hdy.user.v1','我')); if(v&&v.trim()){ write('hdy.user.v1',v.trim()); paintMe(); if(!location.hash||location.hash==='#overview') renderOverview(); } };
+function paintMe(){
+  const me=read('hdy.user.v1','我'); const meta=read('hdy.auth.me',null);
+  document.getElementById('meNm').textContent=me; document.getElementById('meAv').textContent=(me[0]||'我');
+  // when signed into a real org, show org + role and offer logout instead of "switch"
+  const sw=document.getElementById('meSwitch');
+  if(meta&&meta.org){ document.querySelector('.side .foot .me .nm').title=meta.org.name+' · '+roleLabel(meta.role); sw.textContent='退出'; sw.dataset.mode='logout'; }
+  else { sw.textContent='切换'; sw.dataset.mode='switch'; }
+}
+function roleLabel(r){ return ({owner:'所有者',admin:'管理员',member:'成员',viewer:'访客'})[r]||r; }
+document.getElementById('meSwitch').onclick=()=>{
+  const sw=document.getElementById('meSwitch');
+  if(sw.dataset.mode==='logout'){ if(confirm('退出登录？')){ HDY.logout(); location.reload(); } return; }
+  const v=prompt('切换当前身份（用于发起/审批）', read('hdy.user.v1','我')); if(v&&v.trim()){ write('hdy.user.v1',v.trim()); paintMe(); if(!location.hash||location.hash==='#overview') renderOverview(); }
+};
+
+/* ---- auth gate ---- */
+let authMode='login';
+function showAuth(){ document.getElementById('auth').classList.add('show'); renderAuth(); }
+function hideAuth(){ document.getElementById('auth').classList.remove('show'); }
+function renderAuth(){
+  const login = authMode==='login';
+  document.getElementById('authTitle').textContent = login?'登录 好队友':'创建你的团队';
+  document.getElementById('authSub').textContent = login?'低代码审批工作台 · 团队协作版':'注册即创建一个组织，你是所有者';
+  document.getElementById('authGo').textContent = login?'登录':'创建团队并注册';
+  document.getElementById('authFields').innerHTML =
+    (login?'':`<label>团队名称</label><input id="f_org" placeholder="如：Acme 公司" autocomplete="organization">
+              <label>你的称呼</label><input id="f_name" placeholder="如：张三" autocomplete="name">`)+
+    `<label>邮箱</label><input id="f_email" type="email" placeholder="you@company.com" autocomplete="email">
+     <label>密码</label><input id="f_pw" type="password" placeholder="${login?'输入密码':'至少 6 位'}" autocomplete="${login?'current-password':'new-password'}">`;
+  document.getElementById('authAlt').innerHTML = login
+    ? `还没有账号？<a id="toSignup">创建团队 →</a>`
+    : `已有账号？<a id="toLogin">去登录 →</a>`;
+  const alt=document.getElementById('authAlt').querySelector('a');
+  alt.onclick=()=>{ authMode=login?'signup':'login'; document.getElementById('authErr').classList.remove('show'); renderAuth(); };
+  document.getElementById('f_email').focus();
+}
+function authErr(msg){ const e=document.getElementById('authErr'); e.textContent=msg; e.classList.add('show'); }
+async function doAuth(){
+  const btn=document.getElementById('authGo'); btn.disabled=true; document.getElementById('authErr').classList.remove('show');
+  const email=val('f_email'), pw=val('f_pw');
+  try{
+    if(authMode==='login') await HDY.login({email,password:pw});
+    else await HDY.signup({email,password:pw,orgName:val('f_org'),name:val('f_name')});
+    await HDY.pull().catch(()=>{});   // load org data into local store
+    hideAuth(); bootApp();
+  }catch(err){ authErr(err.message||'操作失败，请重试'); btn.disabled=false; }
+}
+function val(id){ const e=document.getElementById(id); return e?e.value.trim():''; }
+document.getElementById('authGo').onclick=doAuth;
+document.getElementById('auth').addEventListener('keydown',e=>{ if(e.key==='Enter') doAuth(); });
+document.getElementById('demoLink').onclick=()=>{ localStorage.setItem('hdy.demoMode','1'); hideAuth(); bootApp(); };
 
 /* ---- topbar / chrome ---- */
 document.getElementById('newForm').onclick=()=>go('form');
@@ -278,9 +361,22 @@ window.addEventListener('storage',e=>{ if(e.key&&e.key.indexOf('hdy.')!==0)retur
 setInterval(updateBadges, 4000);   // safety net for the 待办 badge
 
 /* ---- boot ---- */
-renderNav(); paintMe();
-if(!location.hash){ location.hash='overview'; }   // triggers hashchange -> route()
-route();                                          // also render immediately for first paint
+let booted=false;
+function bootApp(){
+  if(booted) return; booted=true;
+  renderNav(); paintMe();
+  if(!location.hash){ location.hash='overview'; }
+  route();
+  // if signed in, pull latest org data from server periodically
+  if(HDY.isAuthed()){ HDY.pull().then(()=>{updateBadges(); if(document.getElementById('overview').classList.contains('show'))renderOverview();}).catch(()=>{}); setInterval(()=>HDY.pull().catch(()=>{}), 15000); }
+}
+function start(){
+  // Decide: real auth (server available & not in demo) vs local demo mode.
+  const demo = localStorage.getItem('hdy.demoMode')==='1';
+  if(HDY.online() && !HDY.isAuthed() && !demo){ showAuth(); }
+  else { bootApp(); }
+}
+start();
 if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{})); }
 </script>
 </body>

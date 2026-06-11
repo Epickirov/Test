@@ -1,9 +1,9 @@
 /* 好队友 PWA service worker — app-shell cache + offline fallback.
    Data lives in localStorage, so we only need to cache static shell assets. */
-const CACHE = 'hdy-pwa-v10';
+const CACHE = 'hdy-pwa-v11';
 const ASSETS = [
   './index.html', './form.html', './flow.html', './manage.html', './app.html',
-  './dashboard.html', './print.html', './views.html',
+  './dashboard.html', './print.html', './views.html', './team.html', './sync.js',
   './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-180.png',
 ];
@@ -29,6 +29,8 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
+  // never cache API traffic — always hit the network for live data
+  if (new URL(req.url).pathname.startsWith('/api/')) return;
   e.respondWith((async () => {
     const cached = await caches.match(req);
     if (cached) return cached;

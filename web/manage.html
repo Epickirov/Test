@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>body.embedded .topbar a.btn[href$=".html"]{display:none!important}</style>
+<script src="sync.js"></script>
 <script>try{if(window.self!==window.top)document.documentElement.dataset.embed=1;}catch(e){document.documentElement.dataset.embed=1;}
 addEventListener('DOMContentLoaded',function(){if(document.documentElement.dataset.embed)document.body.classList.add('embedded');});</script>
 <title>数据管理 · Submissions</title>
@@ -286,12 +287,15 @@ function openEdit(id){
     `<button class="btn" id="eCancel">取消</button><button class="btn" id="eSave">保存</button><button class="btn primary" id="eSaveResub">保存并重新提交</button>`);
   document.getElementById('eCancel').onclick=closeDrawer;
   const collect=()=>{ const d=readForm(document.getElementById('editForm')); const miss=dataFields().find(f=>isReq(FLOW&&FLOW.start,f.key,f)&&empty(d[f.key])); return {d,miss}; };
-  document.getElementById('eSave').onclick=()=>{ const {d,miss}=collect(); if(miss){toast('请填写：'+miss.label);return;} inst.data=Object.assign(inst.data||{},d); saveAll(); closeDrawer(); render(); toast('已保存'); };
-  document.getElementById('eSaveResub').onclick=()=>{ const {d,miss}=collect(); if(miss){toast('请填写：'+miss.label);return;} inst.data=Object.assign(inst.data||{},d); resubmit(inst); closeDrawer(); render(); toast('已保存并重新提交'); };
+  document.getElementById('eSave').onclick=()=>{ const {d,miss}=collect(); if(miss){toast('请填写：'+miss.label);return;} inst.data=Object.assign(inst.data||{},d); saveAll(); srvUpdate(inst); closeDrawer(); render(); toast('已保存'); };
+  document.getElementById('eSaveResub').onclick=()=>{ const {d,miss}=collect(); if(miss){toast('请填写：'+miss.label);return;} inst.data=Object.assign(inst.data||{},d); resubmit(inst); srvUpdate(inst); closeDrawer(); render(); toast('已保存并重新提交'); };
 }
-function doDelete(id){ const inst=instances.find(i=>i.id===id); if(!inst)return; if(!confirm(`删除「${inst.title}」这条提交记录？此操作不可撤销。`))return; instances=instances.filter(i=>i.id!==id); selected.delete(id); saveAll(); closeDrawer(); render(); toast('已删除'); }
-function doResubmit(id){ const inst=instances.find(i=>i.id===id); if(!inst)return; if(!confirm(`将「${inst.title}」重新提交审批？将按当前流程重新走一遍。`))return; resubmit(inst); closeDrawer(); render(); toast('已重新提交'); }
-function bulkDelete(){ if(!selected.size)return; if(!confirm(`删除选中的 ${selected.size} 条记录？`))return; instances=instances.filter(i=>!selected.has(i.id)); selected.clear(); saveAll(); render(); toast('已删除'); }
+/* server mirror helpers */
+function srvUpdate(inst){ if(window.HDY&&HDY.isAuthed()&&inst.srvId){ HDY.updateDocument(inst.srvId,{title:inst.title,no:inst.no,data:inst.data,steps:inst.steps,cursor:inst.cursor,status:inst.status,resubmittedAt:inst.resubmittedAt}).catch(()=>{}); } }
+function srvDelete(inst){ if(window.HDY&&HDY.isAuthed()&&inst&&inst.srvId){ HDY.deleteDocument(inst.srvId).catch(()=>{}); } }
+function doDelete(id){ const inst=instances.find(i=>i.id===id); if(!inst)return; if(!confirm(`删除「${inst.title}」这条提交记录？此操作不可撤销。`))return; srvDelete(inst); instances=instances.filter(i=>i.id!==id); selected.delete(id); saveAll(); closeDrawer(); render(); toast('已删除'); }
+function doResubmit(id){ const inst=instances.find(i=>i.id===id); if(!inst)return; if(!confirm(`将「${inst.title}」重新提交审批？将按当前流程重新走一遍。`))return; resubmit(inst); srvUpdate(inst); closeDrawer(); render(); toast('已重新提交'); }
+function bulkDelete(){ if(!selected.size)return; if(!confirm(`删除选中的 ${selected.size} 条记录？`))return; instances.filter(i=>selected.has(i.id)).forEach(srvDelete); instances=instances.filter(i=>!selected.has(i.id)); selected.clear(); saveAll(); render(); toast('已删除'); }
 
 /* ---- field input / read (same scheme as app.html) ---- */
 function fieldInput(f,val){const k=f.key,ph=escA(f.placeholder||'请输入');switch(f.type){

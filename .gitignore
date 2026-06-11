@@ -1,0 +1,5 @@
+# server runtime data (per-deployment; never commit)
+server/data/
+node_modules/
+*.log
+.DS_Store

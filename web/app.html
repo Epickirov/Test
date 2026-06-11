@@ -10,6 +10,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <meta name="apple-mobile-web-app-title" content="好队友" />
+<script src="sync.js"></script>
 <script>try{if(window.self!==window.top)document.documentElement.dataset.embed=1;}catch(e){document.documentElement.dataset.embed=1;}</script>
 <style>
   /* When embedded in the desktop shell, stop looking like a phone-in-a-void:
@@ -248,6 +249,15 @@ function nextSerial(field){
 }
 function applySerials(data){ dataFields().forEach(f=>{ if(f.type==='serial' && (data[f.key]==null||data[f.key]==='')) data[f.key]=nextSerial(f); }); }
 
+/* server mirror: create-or-update a document on the backend when authed */
+function docPayload(inst){ return { title:inst.title, no:inst.no, data:inst.data, steps:inst.steps, cursor:inst.cursor, status:inst.status, resubmittedAt:inst.resubmittedAt }; }
+async function syncDoc(inst){
+  if(!(window.HDY&&HDY.isAuthed())) return;
+  try{
+    if(inst.srvId){ await HDY.updateDocument(inst.srvId, docPayload(inst)); }
+    else { const row=await HDY.createDocument(docPayload(inst)); if(row&&row.id){ inst.srvId=row.id; persist(); } }
+  }catch(e){}
+}
 function submitForm(data){
   applySerials(data);                                  // assign document number(s)
   const steps = compileSteps(FLOW,data);
@@ -259,6 +269,7 @@ function submitForm(data){
   pushNotif({type:'submit', title:'提交成功', body:(docNo?docNo+' · ':'')+inst.title, instId:inst.id});
   advance(inst);                   // fire CCs and arrive at first approval
   persist();
+  syncDoc(inst);                   // mirror to server
   return inst;
 }
 function currentStep(inst){ return inst.steps[inst.cursor]; }
@@ -279,14 +290,14 @@ function approve(inst, edits, comment){
   const st=currentStep(inst); if(!st||st.status!=='pending') return;
   Object.assign(inst.data, edits||{});
   st.status='approved'; st.actedBy=me; st.comment=comment||''; st.actedAt=Date.now();
-  advance(inst); persist();
+  advance(inst); persist(); syncDoc(inst);
 }
 function reject(inst, comment){
   const st=currentStep(inst); if(!st||st.status!=='pending') return;
   st.status='rejected'; st.actedBy=me; st.comment=comment||''; st.actedAt=Date.now();
   inst.status='rejected';
   pushNotif({type:'result',title:'审批被驳回 ✕',body:`${inst.title} 在「${st.name}」被 ${me} 驳回`,instId:inst.id});
-  persist();
+  persist(); syncDoc(inst);
 }
 function pendingTasks(){ return instances.filter(i=>i.status==='running' && currentStep(i) && currentStep(i).kind==='approval' && currentStep(i).status==='pending'); }
 
