@@ -24,11 +24,20 @@ addEventListener('DOMContentLoaded',function(){if(document.documentElement.datas
   .main{display:flex; flex:1; min-height:0}
   .palette{
     width:268px; flex:0 0 auto; background:var(--panel);
-    border-right:1px solid var(--border); overflow:auto; padding:12px 14px;
+    border-right:1px solid var(--border); overflow:auto; padding:0;
+    display:flex; flex-direction:column;
   }
+  .pal-search{position:sticky; top:0; z-index:2; background:var(--panel);
+    padding:10px 12px; border-bottom:1px solid var(--border)}
+  .pal-search input{width:100%; padding:7px 10px 7px 30px; border:1px solid var(--border-strong);
+    border-radius:9px; font-size:12.5px; background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%236e7a90' stroke-width='2.4'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") 10px center no-repeat;
+    transition:border-color .15s, box-shadow .15s}
+  .pal-search input:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-weak)}
+  .pal-items{padding:6px 14px 16px}
+  .pal-none{color:var(--muted); font-size:12px; text-align:center; padding:26px 8px}
   .cat-title{font-size:11px; color:var(--muted); margin:16px 2px 7px; font-weight:600;
     text-transform:uppercase; letter-spacing:.5px}
-  .cat-title:first-child{margin-top:2px}
+  .cat-title:first-child{margin-top:8px}
   .field-grid{display:grid; grid-template-columns:1fr 1fr; gap:7px}
   .pal-item{
     display:flex; align-items:center; gap:7px; padding:7px 8px; border:1px solid var(--border);
@@ -57,7 +66,7 @@ addEventListener('DOMContentLoaded',function(){if(document.documentElement.datas
     transition:border-color .12s, background .12s;
   }
   .fld:hover{border-color:#d9e6ff; background:#fafcff}
-  .fld.sel{border-color:var(--accent); background:var(--accent-weak); box-shadow:0 0 0 3px rgba(22,119,255,.12)}
+  .fld.sel{border-color:var(--accent); background:var(--accent-weak); box-shadow:0 0 0 3px rgba(46,98,240,.13)}
   .fld.dragging{opacity:.4}
   .fld .lbl{font-size:13px; margin-bottom:6px; display:flex; align-items:center; gap:5px; font-weight:600}
   .fld .lbl .req{color:var(--danger)}
@@ -139,7 +148,10 @@ addEventListener('DOMContentLoaded',function(){if(document.documentElement.datas
   </div>
 
   <div class="main">
-    <aside class="palette" id="palette"></aside>
+    <aside class="palette">
+      <div class="pal-search"><input id="palSearch" placeholder="搜索字段类型…" /></div>
+      <div class="pal-items" id="palette"></div>
+    </aside>
 
     <div class="canvas-wrap" id="canvasWrap">
       <div class="canvas" id="canvas"></div>
@@ -292,10 +304,13 @@ let _pushT; function save(){ localStorage.setItem('hdy.formbuilder.v1', JSON.str
 function load(){ try{ return JSON.parse(localStorage.getItem('hdy.formbuilder.v1')); }catch(e){ return null; } }
 
 /* ---- 5. Palette ---- */
+let palQ = '';
 function renderPalette(){
   const el = document.getElementById('palette');
-  el.innerHTML = CATEGORIES.map(cat => {
-    const items = FIELDS.filter(f => f.cat===cat.key);
+  const q = palQ.trim().toLowerCase();
+  const match = f => !q || f.name.toLowerCase().includes(q) || f.type.toLowerCase().includes(q);
+  const html = CATEGORIES.map(cat => {
+    const items = FIELDS.filter(f => f.cat===cat.key && match(f));
     if (!items.length) return '';
     return `<div class="cat-title">${cat.name}</div>
       <div class="field-grid">` +
@@ -305,6 +320,7 @@ function renderPalette(){
         </div>`).join('') +
       `</div>`;
   }).join('');
+  el.innerHTML = html || `<div class="pal-none">没有匹配「${escapeHtml(palQ)}」的字段类型</div>`;
   el.querySelectorAll('.pal-item').forEach(it => {
     it.onclick = () => addField(it.dataset.type);
   });
@@ -337,6 +353,7 @@ function renderCanvas(){
     const id = card.dataset.id;
     card.onclick = (e) => { if (e.target.closest('.tools')) return; select(id); };
     card.querySelector('.del').onclick = (e) => { e.stopPropagation(); removeField(id); };
+    card.querySelector('.dup').onclick = (e) => { e.stopPropagation(); duplicateField(id); };
     card.querySelector('.up').onclick   = (e) => { e.stopPropagation(); moveField(id,-1); };
     card.querySelector('.down').onclick = (e) => { e.stopPropagation(); moveField(id, 1); };
     // drag to reorder
@@ -362,6 +379,7 @@ function renderFieldCard(f){
       <div class="tools">
         <button class="handle up" title="上移">↑</button>
         <button class="handle down" title="下移">↓</button>
+        <button class="dup" title="复制字段">⧉</button>
         <button class="del" title="删除">✕</button>
       </div>
       ${lbl}
@@ -419,7 +437,7 @@ function renderControl(f){
     case 'rollup':     return `<input class="ctl" value="Σ 0" disabled>`;
     case 'json':       return `<textarea class="ctl" disabled>{ }</textarea>`;
     case 'hidden':     return `<div class="desc">（隐藏字段 · 不在表单显示）</div>`;
-    case 'color':      return `<input type="color" value="#1677ff" disabled>`;
+    case 'color':      return `<input type="color" value="#2e62f0" disabled>`;
     case 'country':    return `<select class="ctl" disabled><option>中国 China</option></select>`;
     case 'progress':   return `<div class="progress"><i></i></div>`;
     // layout
@@ -452,6 +470,7 @@ function renderProps(){
     rows += propText('label','字段标题', f.label);
     if (!noValue){
       rows += propText('key','字段标识 (key)', f.key);
+      rows += `<div class="prop hint" id="dupWarn" style="color:var(--danger);margin:-8px 0 12px;display:${dupKey(f)?'block':'none'}">⚠ 字段标识与其他字段重复，提交时数据会相互覆盖</div>`;
       rows += `<div class="prop"><label class="inline"><input type="checkbox" data-prop="required" ${f.required?'checked':''}> 必填</label></div>`;
       rows += propText('desc','描述/提示', f.desc);
     }
@@ -468,7 +487,8 @@ function renderProps(){
     if (['relation','lookup','auto_relation','rollup'].includes(f.type)) rows += propText('sourceForm','关联表单', f.sourceForm);
   }
 
-  el.innerHTML = `<h3>${FIELD_MAP[f.type].icon} ${FIELD_MAP[f.type].name} 属性</h3>${rows}`;
+  const def = FIELD_MAP[f.type] || {icon:'❓', name:f.type || '未知类型'};
+  el.innerHTML = `<h3>${def.icon} ${def.name} 属性</h3>${rows}`;
   el.querySelectorAll('[data-prop]').forEach(inp => {
     inp.oninput = inp.onchange = () => {
       const k = inp.dataset.prop;
@@ -476,10 +496,12 @@ function renderProps(){
       if (k==='options') v = inp.value.split('\n').map(s=>s.trim()).filter(Boolean);
       else if (['precision','min','max','step','cols','digits'].includes(k)) v = inp.value===''?null:Number(inp.value);
       f[k] = v;
+      if (k==='key'){ const w = el.querySelector('#dupWarn'); if (w) w.style.display = dupKey(f)?'block':'none'; }
       save(); renderCanvas();
     };
   });
 }
+function dupKey(f){ return !!f.key && state.fields.some(x => x.id!==f.id && x.key===f.key); }
 function propText(k,label,val,wide){ return `<div class="prop"><label>${label}</label><input type="${'text'}" data-prop="${k}" value="${escapeAttr(val||'')}"></div>`; }
 function propTextarea(k,label,val){ return `<div class="prop"><label>${label}</label><textarea data-prop="${k}">${escapeHtml(val||'')}</textarea></div>`; }
 function propNum(k,label,val){ return `<div class="prop"><label>${label}</label><input type="number" data-prop="${k}" value="${val==null?'':val}"></div>`; }
@@ -509,6 +531,17 @@ function bindFormSettings(el){
 
 /* ---- 8. Mutations ---- */
 function select(id){ selectedId = id; renderCanvas(); renderProps(); }
+function duplicateField(id){
+  const i = state.fields.findIndex(f=>f.id===id); if (i<0) return;
+  const copy = JSON.parse(JSON.stringify(state.fields[i]));
+  seq += 1; copy.id = uid(); copy._n = seq;
+  if (copy.label) copy.label += ' 副本';
+  if (copy.key){ let k = copy.key + '_copy', n = 2;
+    while (state.fields.some(f=>f.key===k)) k = copy.key + '_copy' + n++;
+    copy.key = k; }
+  state.fields.splice(i+1, 0, copy);
+  selectedId = copy.id; commit();
+}
 function removeField(id){ state.fields = state.fields.filter(f=>f.id!==id); if(selectedId===id) selectedId=null; commit(); }
 function moveField(id,dir){
   const i = state.fields.findIndex(f=>f.id===id), j=i+dir;
@@ -548,6 +581,8 @@ function closeModal(){ document.getElementById('modalBg').classList.remove('show
 function init(){
   renderPalette(); renderCanvas(); renderProps();
 
+  const ps = document.getElementById('palSearch');
+  ps.oninput = () => { palQ = ps.value; renderPalette(); };
   document.getElementById('formTitle').oninput = (e) => { state.title = e.target.value; save(); renderCanvas(); if(!selectedId) renderProps(); };
   document.getElementById('btnExport').onclick = () => openModal('表单 Schema (JSON)', JSON.stringify(schema(), null, 2), false);
   document.getElementById('btnImport').onclick = () => openModal('粘贴要导入的 Schema JSON', '', true);
@@ -575,11 +610,19 @@ function init(){
   document.getElementById('jsonApply').onclick = () => {
     try {
       const obj = JSON.parse(document.getElementById('jsonArea').value);
+      if (!obj || typeof obj !== 'object' || !Array.isArray(obj.fields)) throw new Error('不是有效的表单 Schema（缺少 fields 数组）');
       state.title = obj.title || state.title;
       state.settings = obj.settings || state.settings;
-      state.fields = (obj.fields||[]).map(f => ({ _n:++seq, ...f, id: f.id||uid() }));
+      // sanitize: unknown types fall back to text, missing ids/keys/labels are filled in
+      state.fields = obj.fields.filter(f => f && typeof f === 'object').map(f => ({
+        _n: ++seq, ...f,
+        id: f.id || uid(),
+        type: FIELD_MAP[f.type] ? f.type : 'single_text',
+        label: f.label ?? ((FIELD_MAP[f.type]||{}).name || '字段'),
+        key: f.key || ('f_' + seq),
+      }));
       selectedId = null; closeModal(); commit();
-    } catch(err){ alert('JSON 解析失败：' + err.message); }
+    } catch(err){ alert('导入失败：' + err.message); }
   };
 }
 

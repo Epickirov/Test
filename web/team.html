@@ -64,7 +64,7 @@ async function render(){
   const canManage=['owner','admin'].includes(myRole);
   wrap.innerHTML='<div class="card"><div class="empty">加载中…</div></div>';
   let members=[], log=[];
-  try{ members=await HDY.members(); }catch(e){}
+  try{ members=await HDY.members(); }catch(e){ toast('成员列表加载失败：'+(e.message||'网络错误')); }
   try{ if(canManage) log=await HDY.audit(); }catch(e){}
 
   wrap.innerHTML=`

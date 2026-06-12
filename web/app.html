@@ -30,7 +30,7 @@
   *{-webkit-tap-highlight-color:transparent}
   .li,.tcard,.big-btn,.me-row{transition:transform .08s ease,background .15s ease,box-shadow .12s ease}
   .li:active,.tcard:active,.big-btn:active{transform:scale(.985)}
-  body{background:#e3e7ec;font-size:14px}
+  body{background:#e2e6ee;font-size:14px}
   .phone{max-width:460px;margin:0 auto;height:100vh;height:100dvh;background:var(--bg);position:relative;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 0 48px rgba(15,23,42,.16)}
   /* app bar */
   .appbar{flex:0 0 auto;background:var(--panel);color:var(--text);display:flex;align-items:center;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;font-weight:700;font-size:18px;position:relative;border-bottom:1px solid var(--border)}
@@ -47,7 +47,7 @@
   .tab .badge{top:0;right:50%;margin-right:-26px}
   /* cards / lists */
   .card{border-radius:var(--r-lg);padding:15px;margin-bottom:12px;border:0;box-shadow:var(--shadow-sm)}
-  .big-btn{display:flex;align-items:center;gap:13px;width:100%;background:var(--accent-grad);color:#fff;border:0;border-radius:var(--r-lg);padding:17px 16px;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 8px 20px -6px rgba(22,119,255,.55);margin-bottom:14px}
+  .big-btn{display:flex;align-items:center;gap:13px;width:100%;background:var(--accent-grad);color:#fff;border:0;border-radius:var(--r-lg);padding:17px 16px;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 8px 20px -6px var(--accent-glow);margin-bottom:14px}
   .big-btn .ic{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-size:21px}
   .li{display:flex;gap:11px;align-items:flex-start;padding:12px 4px;border-bottom:1px solid var(--border);cursor:pointer}
   .li:last-child{border-bottom:0}
@@ -70,7 +70,7 @@
   .foot .btn,.btn{flex:1;border-radius:11px;padding:12px;font-size:15px;font-weight:600}
   .btn.sm{flex:0 0 auto;padding:8px 18px;font-size:13px;border-radius:9px}
   .me-head{display:flex;align-items:center;gap:13px;margin-bottom:12px}
-  .me-head .avt{width:56px;height:56px;border-radius:16px;background:var(--accent-grad);color:#fff;display:flex;align-items:center;justify-content:center;font-size:25px;box-shadow:0 6px 14px -4px rgba(22,119,255,.5)}
+  .me-head .avt{width:56px;height:56px;border-radius:16px;background:var(--accent-grad);color:#fff;display:flex;align-items:center;justify-content:center;font-size:25px;box-shadow:0 6px 14px -4px var(--accent-glow)}
   .me-row{display:flex;align-items:center;gap:10px;padding:13px 2px;border-bottom:1px solid var(--border)}
   .me-row:last-child{border-bottom:0}
   .me-row .ic{width:30px;text-align:center}
@@ -118,6 +118,7 @@
   <div class="foot" id="screenFoot" style="display:none"></div>
 </div>
 
+<div class="sheet-bg" id="sheetBg"><div class="sheet" id="sheetBox"></div></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -303,7 +304,12 @@ function setBadge(id,n){ const e=document.getElementById(id); if(!e) return; e.t
 let tab='workbench';
 let batch=false; const batchSel=new Set();   // 待办 batch-approval mode
 const TAB_TITLE={workbench:'工作台',todo:'待办审批',msg:'消息中心',me:'我的'};
+/* signature of all rendered data — used to skip no-op re-renders on focus/storage
+   (a re-render replaces the DOM mid-click and would swallow the user's tap) */
+function snapshot(){ return [LS.form,LS.flow,LS.inst,LS.notif,LS.user].map(k=>localStorage.getItem(k)||'').join(' '); }
+let lastSnap='';
 function render(){
+  lastSnap=snapshot();
   document.getElementById('barTitle').textContent=TAB_TITLE[tab];
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.tab===tab));
   const v=document.getElementById('view');
@@ -387,6 +393,23 @@ function instLi(i){
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">${st}<div class="time">${rel(i.createdAt)}</div></div></div>`;
 }
 
+/* ---- action sheet (replaces native prompt/confirm: consistent, mobile-friendly) ---- */
+function sheet(o){
+  return new Promise(res=>{
+    const bg=document.getElementById('sheetBg'), box=document.getElementById('sheetBox');
+    box.innerHTML=`<h4>${esc(o.title||'')}</h4>${o.sub?`<div class="ssub">${esc(o.sub)}</div>`:''}
+      ${o.input?`<textarea id="shVal" placeholder="${escA(o.placeholder||'')}">${esc(o.value||'')}</textarea>`:''}
+      <div class="sbtns"><button class="btn" id="shNo">${esc(o.cancelText||'取消')}</button>
+      <button class="btn ${o.okDanger?'danger':'primary'}" id="shOk">${esc(o.okText||'确定')}</button></div>`;
+    bg.classList.add('show');
+    const done=v=>{ bg.classList.remove('show'); bg.onclick=null; res(v); };
+    box.querySelector('#shNo').onclick=()=>done(null);
+    box.querySelector('#shOk').onclick=()=>done(o.input?box.querySelector('#shVal').value.trim():true);
+    bg.onclick=e=>{ if(e.target===bg) done(null); };
+    const ta=box.querySelector('#shVal'); if(ta&&!('ontouchstart' in window)) ta.focus();
+  });
+}
+
 /* quick + batch approval (no need to open each slip) */
 function missingReq(inst){ const node=currentStep(inst); return dataFields().find(f=>!isHidden(node,f.key)&&canEdit(node,f.key)&&isReq(node,f.key,f)&&empty(inst.data[f.key])); }
 function quickApprove(id){
@@ -394,10 +417,14 @@ function quickApprove(id){
   const miss=missingReq(inst); if(miss){ toast('需补充：'+miss.label); openTask(id); return; }
   approve(inst,{},''); render(); toast('已同意');
 }
-function quickReject(id){
+async function quickReject(id){
   const inst=instances.find(i=>i.id===id); if(!inst) return;
-  const r=prompt('驳回原因（选填）',''); if(r===null) return;
-  reject(inst, r||''); render(); toast('已驳回');
+  const r=await sheet({title:'驳回该单据？',sub:inst.title,input:true,placeholder:'驳回原因（选填）',okText:'确认驳回',okDanger:true});
+  if(r===null) return;
+  // re-locate: a background sync may have replaced the instances array meanwhile
+  const cur=instances.find(i=>i.id===id);
+  if(!cur||!currentStep(cur)||currentStep(cur).status!=='pending'){ render(); return; }
+  reject(cur, r||''); render(); toast('已驳回');
 }
 function batchApprove(){
   let done=0, skip=0;
@@ -407,9 +434,10 @@ function batchApprove(){
     approve(inst,{},''); done++; });
   batchSel.clear(); render(); toast(`已通过 ${done} 项`+(skip?` · ${skip} 项需补充信息已跳过`:''));
 }
-function batchReject(){
+async function batchReject(){
   if(!batchSel.size) return;
-  const r=prompt(`批量驳回 ${batchSel.size} 项 · 原因（选填）`,''); if(r===null) return;
+  const r=await sheet({title:`批量驳回 ${batchSel.size} 项？`,input:true,placeholder:'驳回原因（选填）',okText:'确认驳回',okDanger:true});
+  if(r===null) return;
   let done=0; [...batchSel].forEach(id=>{ const inst=instances.find(i=>i.id===id);
     if(inst&&currentStep(inst)&&currentStep(inst).status==='pending'){ reject(inst, r||''); done++; } });
   batchSel.clear(); render(); toast(`已驳回 ${done} 项`);
@@ -480,14 +508,21 @@ function openTask(instId){
     <div class="field"><label>审批意见</label><textarea class="fi" id="apprComment" placeholder="选填"></textarea></div>`;
   setScreen('审批 · '+esc(node.name), body,
     `<button class="btn danger" id="doReject">驳回</button><button class="btn primary" id="doApprove">同意</button>`);
+  // re-locate the instance at action time: a background sync (storage event)
+  // may have replaced the instances array since the screen was opened, and a
+  // mutation on the stale object would be silently lost on the next persist()
+  const fresh=()=>{ const c=instances.find(i=>i.id===instId);
+    if(!c||!currentStep(c)||currentStep(c).status!=='pending'){ toast('该任务已被处理'); closeScreen(); render(); return null; }
+    return c; };
   document.getElementById('doApprove').onclick=()=>{
+    const cur=fresh(); if(!cur) return;
     const cont=document.getElementById('taskForm');
     const edits=readForm(cont);
     const miss=dataFields().find(f=>!isHidden(node,f.key)&&canEdit(node,f.key)&&isReq(node,f.key,f)&&empty(edits[f.key]));
     if(miss){ toast('请填写：'+miss.label); return; }
-    approve(inst, edits, val('apprComment')); closeScreen(); toast('已同意'); render();
+    approve(cur, edits, val('apprComment')); closeScreen(); toast('已同意'); render();
   };
-  document.getElementById('doReject').onclick=()=>{ reject(inst, val('apprComment')); closeScreen(); toast('已驳回'); render(); };
+  document.getElementById('doReject').onclick=()=>{ const cur=fresh(); if(!cur) return; reject(cur, val('apprComment')); closeScreen(); toast('已驳回'); render(); };
 }
 
 /* ---- instance detail (timeline) ---- */
@@ -568,8 +603,16 @@ document.addEventListener('click', e=>{
 });
 
 /* ---------- misc actions ---------- */
-function switchUser(){ const v=prompt('切换当前身份（演示用，可输入：销售总监、品鉴、张三…）', me); if(v && v.trim()){ me=v.trim(); write(LS.user,me); render(); } }
-function resetData(){ if(confirm('清空所有提交实例与消息？（表单与流程定义保留）')){ instances=[]; notifs=[]; persist(); render(); toast('已清空'); } }
+async function switchUser(){
+  const v=await sheet({title:'切换当前身份',sub:'演示用：输入要扮演的名字，如 销售总监、张三…',input:true,value:me,okText:'切换'});
+  if(v===null||!v.trim()) return;
+  me=v.trim(); write(LS.user,me); render();
+}
+async function resetData(){
+  const ok=await sheet({title:'清空演示数据？',sub:'将删除所有提交实例与消息；表单与流程定义保留。此操作不可撤销。',okText:'清空',okDanger:true});
+  if(!ok) return;
+  instances=[]; notifs=[]; persist(); render(); toast('已清空');
+}
 let deferredPrompt=null;
 window.addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); deferredPrompt=e; });
 async function doInstall(){
@@ -590,11 +633,12 @@ function rel(ts){ const d=Date.now()-ts; if(d<60000) return '刚刚'; if(d<36000
 /* ---------- boot ---------- */
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{ tab=t.dataset.tab; render(); });
 document.getElementById('bell').onclick=()=>{ tab='msg'; render(); };
-// re-read designer data when returning to the app
+// re-read designer data when returning to the app — only if it actually changed
 function reloadFromStore(){ FORM=read(LS.form,null); FLOW=read(LS.flow,null); instances=read(LS.inst,[]); notifs=read(LS.notif,[]); me=read(LS.user,'我'); }
-window.addEventListener('focus', ()=>{ reloadFromStore(); render(); });
+function refreshIfChanged(){ if(snapshot()===lastSnap) return; reloadFromStore(); render(); }
+window.addEventListener('focus', refreshIfChanged);
 // live sync: another module changed shared data → reload & re-render
-window.addEventListener('storage', e=>{ if(e.key && e.key.indexOf('hdy.')!==0) return; reloadFromStore(); render(); });
+window.addEventListener('storage', e=>{ if(e.key && e.key.indexOf('hdy.')!==0) return; refreshIfChanged(); });
 // deep link ?tab=
 const qp=new URLSearchParams(location.search).get('tab'); if(qp&&TAB_TITLE[qp]) tab=qp;
 // service worker

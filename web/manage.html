@@ -33,7 +33,7 @@ addEventListener('DOMContentLoaded',function(){if(document.documentElement.datas
   table.grid thead th.sortable:hover{color:var(--accent)}
   table.grid tbody tr{transition:background .1s}
   table.grid tbody tr:hover{background:#f7faff;cursor:pointer}
-  table.grid td.actions{white-space:nowrap}
+  table.grid td.actions{white-space:nowrap;max-width:none}
   table.grid td.actions .btn{margin-right:4px}
   table.grid input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;cursor:pointer}
   .foot{padding:9px 16px;color:var(--muted);border-top:1px solid var(--border);background:var(--panel);font-size:12px}
@@ -149,9 +149,14 @@ function bumpSync(){ try{ localStorage.setItem('hdy.sync', Date.now()+'.'+Math.r
 let filter='all', q='', selected=new Set(), sort={key:'',dir:'asc'};
 let views=read('hdy.views.v1',[]);
 function saveAll(){write(LS.inst,instances);write(LS.notif,notifs);bumpSync();}
+/* signature of rendered data — skip no-op re-renders on focus/storage so a
+   re-render can't replace the DOM mid-click and swallow the user's tap */
+function snapshot(){ return [LS.form,LS.flow,LS.inst].map(k=>localStorage.getItem(k)||'').join(' '); }
+let lastSnap='';
 
 /* ---- render ---- */
 function render(){
+  lastSnap=snapshot();
   document.getElementById('formName').textContent=FORM?('· '+(FORM.title||'')):'';
   renderStats();
   const list=filtered();
@@ -163,7 +168,7 @@ function render(){
   wrap.innerHTML=`<table class="grid"><thead><tr>
     <th style="width:34px"><input type="checkbox" id="selAll"></th>
     <th class="sortable" data-sort="__status">状态${sind('__status')}</th>${cols.map(f=>`<th class="sortable" data-sort="${escA(f.key)}">${esc(f.label)}${sind(f.key)}</th>`).join('')}
-    <th>当前环节</th><th class="sortable" data-sort="__initiator">发起人${sind('__initiator')}</th><th class="sortable" data-sort="__created">提交时间${sind('__created')}</th><th style="width:200px">操作</th>
+    <th>当前环节</th><th class="sortable" data-sort="__initiator">发起人${sind('__initiator')}</th><th class="sortable" data-sort="__created">提交时间${sind('__created')}</th><th style="width:248px">操作</th>
   </tr></thead><tbody>${list.map(rowHtml).join('')||`<tr><td colspan="${cols.length+6}" class="muted" style="text-align:center;padding:30px">没有符合条件的记录</td></tr>`}</tbody></table>`;
   document.getElementById('foot').textContent=`共 ${instances.length} 条 · 当前显示 ${list.length} 条`+(selected.size?` · 已选 ${selected.size}`:'');
   document.getElementById('btnBulkDel').disabled=!selected.size;
@@ -251,8 +256,11 @@ function openEdit(id){
     `<button class="btn" id="eCancel">取消</button><button class="btn" id="eSave">保存</button><button class="btn primary" id="eSaveResub">保存并重新提交</button>`);
   document.getElementById('eCancel').onclick=closeDrawer;
   const collect=()=>{ const d=readForm(document.getElementById('editForm')); const miss=dataFields().find(f=>isReq(FLOW&&FLOW.start,f.key,f)&&empty(d[f.key])); return {d,miss}; };
-  document.getElementById('eSave').onclick=()=>{ const {d,miss}=collect(); if(miss){toast('请填写：'+miss.label);return;} inst.data=Object.assign(inst.data||{},d); saveAll(); srvUpdate(inst); closeDrawer(); render(); toast('已保存'); };
-  document.getElementById('eSaveResub').onclick=()=>{ const {d,miss}=collect(); if(miss){toast('请填写：'+miss.label);return;} inst.data=Object.assign(inst.data||{},d); resubmit(inst); srvUpdate(inst); closeDrawer(); render(); toast('已保存并重新提交'); };
+  // re-locate at save time: a background sync may have replaced the instances
+  // array while the drawer was open; mutating the stale object would be lost
+  const fresh=()=>{ const c=instances.find(i=>i.id===id); if(!c){ toast('该记录已不存在'); closeDrawer(); render(); } return c; };
+  document.getElementById('eSave').onclick=()=>{ const {d,miss}=collect(); if(miss){toast('请填写：'+miss.label);return;} const cur=fresh(); if(!cur)return; cur.data=Object.assign(cur.data||{},d); saveAll(); srvUpdate(cur); closeDrawer(); render(); toast('已保存'); };
+  document.getElementById('eSaveResub').onclick=()=>{ const {d,miss}=collect(); if(miss){toast('请填写：'+miss.label);return;} const cur=fresh(); if(!cur)return; cur.data=Object.assign(cur.data||{},d); resubmit(cur); srvUpdate(cur); closeDrawer(); render(); toast('已保存并重新提交'); };
 }
 /* server mirror helpers */
 function srvUpdate(inst){ if(window.HDY&&HDY.isAuthed()&&inst.srvId){ HDY.updateDocument(inst.srvId,{title:inst.title,no:inst.no,data:inst.data,steps:inst.steps,cursor:inst.cursor,status:inst.status,resubmittedAt:inst.resubmittedAt}).catch(()=>{}); } }
@@ -318,9 +326,11 @@ document.getElementById('saveView').onclick=()=>{ const name=prompt('视图名�
 document.getElementById('delView').onclick=()=>{ const sel=document.getElementById('viewSel'); if(sel.value===''){toast('先选择一个视图');return;} views.splice(+sel.value,1); write('hdy.views.v1',views); renderViews(); toast('已删除视图'); };
 function reloadFromStore(){FORM=read(LS.form,null);FLOW=read(LS.flow,null);instances=read(LS.inst,[]);notifs=read(LS.notif,[]);}
 function drawerOpen(){return document.getElementById('drawer').classList.contains('show');}
-window.addEventListener('focus',()=>{reloadFromStore();render();});
-// live sync from other modules — but don't yank the table out from under an open editor
-window.addEventListener('storage',e=>{ if(e.key&&e.key.indexOf('hdy.')!==0)return; reloadFromStore(); if(!drawerOpen())render(); });
+// refresh only when shared data actually changed — and don't yank the table
+// out from under an open editor
+function refreshIfChanged(){ if(snapshot()===lastSnap)return; reloadFromStore(); if(!drawerOpen())render(); }
+window.addEventListener('focus',refreshIfChanged);
+window.addEventListener('storage',e=>{ if(e.key&&e.key.indexOf('hdy.')!==0)return; refreshIfChanged(); });
 renderViews(); render();
 </script>
 </body>

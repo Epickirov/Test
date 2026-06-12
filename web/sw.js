@@ -1,7 +1,7 @@
 /* 好队友 PWA service worker — app-shell cache + offline fallback.
    Data lives in localStorage, so we only need to cache static shell assets.
    HTML is network-first (deploys show up immediately); other assets cache-first. */
-const CACHE = 'hdy-pwa-v12';
+const CACHE = 'hdy-pwa-v13';
 const ASSETS = [
   './index.html', './form.html', './flow.html', './manage.html', './app.html',
   './dashboard.html', './print.html', './views.html', './team.html', './sync.js',

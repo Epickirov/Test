@@ -81,7 +81,11 @@ function valLabel(f,v){ if(Array.isArray(v))return v; if(f.type==='switch')retur
 let cfg=read('hdy.dash.v1',{dim:'',measure:'count'});
 function saveCfg(){localStorage.setItem('hdy.dash.v1',JSON.stringify(cfg));}
 
+/* signature of rendered data — skip no-op re-renders on focus/storage */
+function snapshot(){ return ['hdy.formbuilder.v1','hdy.instances.v1'].map(k=>localStorage.getItem(k)||'').join(' '); }
+let lastSnap='';
 function render(){
+  lastSnap=snapshot();
   const wrap=document.getElementById('wrap');
   if(!FORM||!dataFields().length){ wrap.innerHTML=`<div class="empty"><div class="big">📊</div><p>还没有表单/数据。请先在 <a href="form.html">表单设计器</a> 建表，并到 <a href="app.html">手机端</a> 提交几条。</p></div>`; return; }
   if(!instances.length){ wrap.innerHTML=`<div class="empty"><div class="big">📭</div><p>暂无提交数据。到 <a href="app.html">手机端</a> 发起填报后，这里会自动统计。</p></div>`; return; }
@@ -132,7 +136,10 @@ function trend(){
 
 function groupControls(){
   const fs=dataFields();
-  if(!cfg.dim) cfg.dim=fs[0].key;
+  // fields may have been renamed/deleted in the designer since the config was saved
+  if(!cfg.dim||!fs.some(f=>f.key===cfg.dim)) cfg.dim=fs[0].key;
+  const [mt,mk]=String(cfg.measure||'count').split(':');
+  if(mt!=='count'&&!numFields().some(f=>f.key===mk)) cfg.measure='count';
   const dimOpts=fs.map(f=>`<option value="${f.key}" ${cfg.dim===f.key?'selected':''}>${esc(f.label)}</option>`).join('');
   const measOpts=[`<option value="count" ${cfg.measure==='count'?'selected':''}>记录数</option>`]
     .concat(numFields().flatMap(f=>[
@@ -165,9 +172,10 @@ function bind(){
   if(meas) meas.onchange=()=>{cfg.measure=meas.value;saveCfg();document.getElementById('groupChart').innerHTML=groupChart();};
 }
 document.getElementById('refresh').onclick=()=>{FORM=read('hdy.formbuilder.v1',null);instances=read('hdy.instances.v1',[]);render();};
-window.addEventListener('focus',()=>{FORM=read('hdy.formbuilder.v1',null);instances=read('hdy.instances.v1',[]);render();});
+function refreshIfChanged(){ if(snapshot()===lastSnap)return; FORM=read('hdy.formbuilder.v1',null);instances=read('hdy.instances.v1',[]);render(); }
+window.addEventListener('focus',refreshIfChanged);
 // live sync from other modules
-window.addEventListener('storage',e=>{ if(e.key&&e.key.indexOf('hdy.')!==0)return; FORM=read('hdy.formbuilder.v1',null);instances=read('hdy.instances.v1',[]);render(); });
+window.addEventListener('storage',e=>{ if(e.key&&e.key.indexOf('hdy.')!==0)return; refreshIfChanged(); });
 render();
 </script>
 </body>

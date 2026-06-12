@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="theme-color" content="#1677ff" />
+<meta name="theme-color" content="#2e62f0" />
 <title>好队友 · 工作台</title>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icons/icon-180.png" />
@@ -11,26 +11,29 @@
 <link rel="stylesheet" href="ui.css" />
 <script src="sync.js"></script>
 <style>
-  :root{--side:#141a26;--side-hi:#1f2837;--side-mut:#8b97ab;--side-line:rgba(255,255,255,.07)}
+  :root{--side:#101729;--side-hi:#1b2438;--side-mut:#8e9bb3;--side-line:rgba(255,255,255,.08)}
   a{text-decoration:none}
-  .nav button,.topbar .tbtn,.act{transition:transform .08s ease,background .15s ease,box-shadow .12s ease,border-color .12s ease}
+  .nav button,.topbar .tbtn,.act,.ob-step{transition:transform .08s ease,background .15s ease,box-shadow .12s ease,border-color .12s ease}
   .nav button:active,.topbar .tbtn:active{transform:scale(.97)}
   .act:active{transform:translateY(0) scale(.99)}
   /* auth gate */
   .auth{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;padding:20px;
-    background:radial-gradient(1100px 600px at 12% -10%,#2f6fe0 0%,transparent 55%),
-               radial-gradient(900px 600px at 105% 110%,#123c8c 0%,transparent 55%),
-               linear-gradient(150deg,#16335f,#0a47b3)}
+    background:radial-gradient(1100px 600px at 12% -10%,#3f63f0 0%,transparent 55%),
+               radial-gradient(900px 600px at 105% 110%,#3127a0 0%,transparent 55%),
+               linear-gradient(150deg,#17224d,#3730a3)}
   .auth.show{display:flex}
-  .auth-card{background:#fff;border-radius:20px;box-shadow:var(--shadow-lg);width:410px;max-width:94vw;padding:32px 30px;animation:authIn .3s ease}
+  .auth-card{background:#fff;border-radius:22px;box-shadow:var(--shadow-lg);width:410px;max-width:94vw;padding:32px 30px;animation:authIn .3s ease;position:relative}
   @keyframes authIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-  .auth-card .logo{width:50px;height:50px;border-radius:14px;background:var(--accent-grad);display:flex;align-items:center;justify-content:center;font-size:25px;color:#fff;margin-bottom:16px;box-shadow:0 6px 16px -4px rgba(22,119,255,.5)}
+  .auth-card .x{position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:50%;border:0;background:var(--bg);color:var(--muted);cursor:pointer;font-size:13px;display:none;align-items:center;justify-content:center}
+  .auth-card .x:hover{background:var(--danger-weak);color:var(--danger)}
+  .auth-card .x.show{display:flex}
+  .auth-card .logo{width:50px;height:50px;border-radius:15px;background:var(--accent-grad);display:flex;align-items:center;justify-content:center;font-size:25px;color:#fff;margin-bottom:16px;box-shadow:0 6px 16px -4px var(--accent-glow)}
   .auth-card h2{margin:0 0 4px;font-size:21px}
   .auth-card .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
   .auth-card label{display:block;font-size:12px;color:var(--muted);margin:13px 0 5px;font-weight:600}
   .auth-card input{width:100%;padding:11px 13px;border:1px solid var(--border-strong);border-radius:10px;font-size:14px;transition:border-color .15s,box-shadow .15s}
   .auth-card input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-weak)}
-  .auth-card .go{width:100%;margin-top:20px;padding:12px;background:var(--accent-grad);color:#fff;border:0;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px -3px rgba(22,119,255,.55);transition:filter .15s,transform .08s}
+  .auth-card .go{width:100%;margin-top:20px;padding:12px;background:var(--accent-grad);color:#fff;border:0;border-radius:11px;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px -3px var(--accent-glow);transition:filter .15s,transform .08s}
   .auth-card .go:hover{filter:brightness(1.06)}
   .auth-card .go:active{transform:scale(.98)}
   .auth-card .go:disabled{opacity:.6;cursor:default}
@@ -42,23 +45,25 @@
   .auth-card .demo a{color:var(--muted);cursor:pointer;text-decoration:underline}
   .shell{display:flex;height:100vh;height:100dvh;overflow:hidden}
   /* sidebar */
-  .side{width:228px;flex:0 0 auto;background:var(--side);color:#fff;display:flex;flex-direction:column;transition:width .18s}
+  .side{width:228px;flex:0 0 auto;background:linear-gradient(180deg,#121a30 0%,var(--side) 30%);color:#fff;display:flex;flex-direction:column;transition:width .18s}
   .side .brand{display:flex;align-items:center;gap:11px;padding:16px;border-bottom:1px solid var(--side-line)}
-  .side .brand .logo{width:34px;height:34px;border-radius:10px;background:var(--accent-grad);display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 auto;box-shadow:0 4px 10px -2px rgba(22,119,255,.5)}
+  .side .brand .logo{width:34px;height:34px;border-radius:10px;background:var(--accent-grad);display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 auto;box-shadow:0 4px 10px -2px var(--accent-glow)}
   .side .brand b{font-size:15px;white-space:nowrap;letter-spacing:.3px}
   .side .brand .sub{font-size:11px;color:var(--side-mut);white-space:nowrap}
   .nav{flex:1;overflow:auto;padding:10px;scrollbar-color:#3a4456 transparent}
   .nav .sep{color:var(--side-mut);font-size:10.5px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;padding:16px 12px 6px;white-space:nowrap}
-  .nav button{width:100%;display:flex;align-items:center;gap:11px;background:none;border:0;color:#c7d0dd;padding:9px 12px;border-radius:9px;cursor:pointer;font-size:13.5px;text-align:left;margin-bottom:1px;position:relative}
+  .nav button{width:100%;display:flex;align-items:center;gap:11px;background:none;border:0;color:#c3cce0;padding:9px 12px;border-radius:10px;cursor:pointer;font-size:13.5px;text-align:left;margin-bottom:1px;position:relative}
   .nav button .ic{font-size:16px;width:21px;text-align:center;flex:0 0 auto;opacity:.92}
   .nav button .lbl{white-space:nowrap;overflow:hidden;flex:1}
   .nav button .badge{background:var(--danger);color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:1px 6px;min-width:17px;text-align:center;display:none}
   .nav button .badge.show{display:inline-block}
   .nav button:hover{background:var(--side-hi);color:#fff}
-  .nav button.on{background:linear-gradient(135deg,rgba(59,143,255,.22),rgba(22,119,255,.14));color:#fff;font-weight:600}
-  .nav button.on::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--accent)}
+  .nav button.on{background:linear-gradient(135deg,rgba(86,118,255,.26),rgba(79,70,229,.16));color:#fff;font-weight:600}
+  .nav button.on::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--accent-grad)}
   .side .foot{padding:10px;border-top:1px solid var(--side-line)}
-  .side .foot .me{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:9px}
+  .side .foot .lgn{width:100%;display:none;align-items:center;justify-content:center;gap:7px;background:rgba(86,118,255,.16);border:1px solid rgba(108,134,255,.4);color:#cdd8ff;padding:8px;border-radius:10px;cursor:pointer;font-size:12.5px;font-weight:600;margin-bottom:8px;transition:background .15s}
+  .side .foot .lgn:hover{background:rgba(86,118,255,.3);color:#fff}
+  .side .foot .me{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:10px}
   .side .foot .me:hover{background:var(--side-hi)}
   .side .foot .me .av{width:30px;height:30px;border-radius:50%;background:var(--accent-grad);display:flex;align-items:center;justify-content:center;font-size:13px;flex:0 0 auto}
   .side .foot .me .nm{font-size:13px;white-space:nowrap;overflow:hidden}
@@ -68,7 +73,7 @@
   .shell.collapsed .side{width:64px}
   .shell.collapsed .side .brand b,.shell.collapsed .side .brand .sub,
   .shell.collapsed .nav .lbl,.shell.collapsed .nav .sep,.shell.collapsed .nav .badge,
-  .shell.collapsed .foot .nm,.shell.collapsed .foot .sw{display:none}
+  .shell.collapsed .foot .nm,.shell.collapsed .foot .sw,.shell.collapsed .foot .lgn{display:none}
   .shell.collapsed .nav button{justify-content:center}
   /* main */
   .main{flex:1;display:flex;flex-direction:column;min-width:0}
@@ -76,9 +81,12 @@
   .topbar .ham{border:0;background:none;font-size:18px;cursor:pointer;color:var(--muted);padding:4px 8px;border-radius:8px}
   .topbar .ham:hover{background:var(--bg);color:var(--text)}
   .topbar .crumb{font-weight:650;font-size:15.5px}
-  .topbar .tbtn{border:1px solid var(--border-strong);background:#fff;color:var(--text);padding:7px 14px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:500}
+  .mode-pill{display:none;align-items:center;gap:8px;background:var(--amber-weak);color:var(--amber);border-radius:999px;padding:4px 12px;font-size:12px;font-weight:600;white-space:nowrap}
+  .mode-pill a{color:var(--accent);cursor:pointer;font-weight:700}
+  .mode-pill a:hover{text-decoration:underline}
+  .topbar .tbtn{border:1px solid var(--border-strong);background:#fff;color:var(--text);padding:7px 14px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:500}
   .topbar .tbtn:hover{border-color:var(--accent);color:var(--accent)}
-  .topbar .tbtn.primary{background:var(--accent-grad);border-color:transparent;color:#fff;box-shadow:0 2px 8px -1px rgba(22,119,255,.45)}
+  .topbar .tbtn.primary{background:var(--accent-grad);border-color:transparent;color:#fff;box-shadow:0 2px 8px -1px var(--accent-glow)}
   .topbar .tbtn.primary:hover{filter:brightness(1.06);color:#fff}
   .content{flex:1;min-height:0;position:relative;background:var(--bg)}
   iframe#frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:var(--bg);display:none;opacity:0;transition:opacity .2s ease}
@@ -93,14 +101,35 @@
   .ov{position:absolute;inset:0;overflow:auto;padding:26px;display:none}
   .ov.show{display:block;animation:fadeUp .26s ease}
   @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-  .ov .head{display:flex;align-items:flex-end;gap:12px;margin-bottom:20px}
+  .ov .head{display:flex;align-items:flex-end;gap:12px;margin-bottom:20px;max-width:1020px}
   .ov .head h1{margin:0;font-size:22px;letter-spacing:.2px}
   .ov .head .date{color:var(--muted);font-size:13px;margin-bottom:3px}
-  .ov-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;max-width:940px}
+  /* onboarding checklist */
+  .ob{background:linear-gradient(135deg,#f0f4ff 0%,#f6f2ff 100%);border:1px solid #dee7fb;border-radius:var(--r-lg);padding:18px 18px 16px;margin-bottom:20px;max-width:1020px;position:relative;box-shadow:var(--shadow-sm)}
+  .ob .ob-x{position:absolute;top:12px;right:12px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(255,255,255,.7);color:var(--muted);cursor:pointer;font-size:12px}
+  .ob .ob-x:hover{background:#fff;color:var(--danger)}
+  .ob .ob-head{display:flex;align-items:center;gap:12px;margin-bottom:13px;padding-right:30px}
+  .ob h2{margin:0;font-size:15px}
+  .ob .ob-sub{color:var(--muted);font-size:12px}
+  .ob .ob-prog{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap}
+  .ob .ob-track{width:90px;height:6px;border-radius:4px;background:rgba(46,98,240,.15);overflow:hidden}
+  .ob .ob-fill{height:100%;border-radius:4px;background:var(--accent-grad);transition:width .3s ease}
+  .ob-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .ob-step{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 13px;cursor:pointer;display:flex;gap:10px;align-items:flex-start}
+  .ob-step:hover{border-color:#b9ccfb;box-shadow:var(--shadow-sm);transform:translateY(-1px)}
+  .ob-step .oic{width:34px;height:34px;border-radius:10px;background:var(--accent-weak);display:flex;align-items:center;justify-content:center;font-size:17px;flex:0 0 auto}
+  .ob-step h4{margin:0 0 2px;font-size:13px;display:flex;align-items:center;gap:5px}
+  .ob-step p{margin:0;color:var(--muted);font-size:11.5px;line-height:1.45}
+  .ob-step.done{background:#f4fcf7;border-color:#cdeeda}
+  .ob-step.done .oic{background:var(--green-weak)}
+  .ob-step.done h4{color:var(--green)}
+  .ob-step .ck{margin-left:auto;color:var(--green);font-weight:700;flex:0 0 auto;font-size:13px}
+  /* quick actions */
+  .ov-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;max-width:1020px}
   .act{display:flex;gap:14px;align-items:center;background:var(--panel);border:1px solid var(--border);border-radius:var(--r-lg);padding:17px 18px;cursor:pointer;position:relative;box-shadow:var(--shadow-sm)}
-  .act:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:#bcd3ff}
+  .act:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:#b9ccfb}
   .act .ic{width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:23px;color:#fff;flex:0 0 auto}
-  .act .ic.blue{background:linear-gradient(135deg,#3b8fff,#0958d9);box-shadow:0 6px 14px -4px rgba(22,119,255,.55)}
+  .act .ic.blue{background:linear-gradient(135deg,#3f7bf7,#4f46e5);box-shadow:0 6px 14px -4px var(--accent-glow)}
   .act .ic.green{background:linear-gradient(135deg,#27c277,#0a8f4e);box-shadow:0 6px 14px -4px rgba(12,157,92,.5)}
   .act .ic.purple{background:linear-gradient(135deg,#8d6bff,#5b34d6);box-shadow:0 6px 14px -4px rgba(107,70,193,.5)}
   .act h3{margin:0 0 3px;font-size:15.5px}.act p{margin:0;color:var(--muted);font-size:12.5px}
@@ -108,12 +137,12 @@
   .act:hover .arrow{transform:translateX(3px);color:var(--accent)}
   .act .nbadge{position:absolute;top:-8px;right:12px;background:var(--danger);color:#fff;border-radius:11px;font-size:11px;font-weight:700;padding:2px 9px;display:none;box-shadow:0 3px 8px -2px rgba(229,72,77,.6)}
   .act .nbadge.show{display:block}
-  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;max-width:940px}
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;max-width:1020px}
   .kpi{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 15px;box-shadow:var(--shadow-sm)}
   .kpi .n{font-size:24px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
   .kpi .l{color:var(--muted);font-size:12px;margin-top:6px}
   .kpi .n.amber{color:var(--amber)}.kpi .n.green{color:var(--green)}.kpi .n.danger{color:var(--danger)}
-  .panels{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:940px}
+  .panels{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:1020px}
   .pnl{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-md);padding:15px 17px;box-shadow:var(--shadow-sm)}
   .pnl h3{margin:0 0 8px;font-size:14px;display:flex;align-items:center}
   .pnl h3 .more{margin-left:auto;font-size:12px;color:var(--accent);cursor:pointer;font-weight:500}
@@ -132,17 +161,19 @@
   @media(max-width:860px){
     .ov{padding:16px}
     .ov-actions{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(3,1fr)}.panels{grid-template-columns:1fr}
+    .ob-steps{grid-template-columns:1fr 1fr}
     .side{position:fixed;z-index:20;height:100%;transform:translateX(-100%);box-shadow:var(--shadow-lg)}
     .shell.mopen .side{transform:translateX(0)}
     .shell.mopen .scrim{display:block}
     .shell.collapsed .side{width:228px}
   }
-  @media(max-width:640px){ #newForm{display:none} .kpis{grid-template-columns:repeat(2,1fr)} }
+  @media(max-width:640px){ #newForm{display:none} .mode-pill{display:none!important} .kpis{grid-template-columns:repeat(2,1fr)} .ob-steps{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
 <div class="auth" id="auth">
   <div class="auth-card">
+    <button class="x" id="authClose" aria-label="关闭">✕</button>
     <div class="logo">✓</div>
     <h2 id="authTitle">登录 好队友</h2>
     <div class="sub" id="authSub">低代码审批工作台 · 团队协作版</div>
@@ -157,13 +188,17 @@
   <aside class="side">
     <div class="brand"><div class="logo">✓</div><div><b>好队友</b><div class="sub">低代码工作台</div></div></div>
     <nav class="nav" id="nav"></nav>
-    <div class="foot"><div class="me"><div class="av" id="meAv">我</div><div class="nm" id="meNm">我</div><span class="sw" id="meSwitch">切换</span></div></div>
+    <div class="foot">
+      <button class="lgn" id="meLogin">🔑 登录 / 注册团队</button>
+      <div class="me"><div class="av" id="meAv">我</div><div class="nm" id="meNm">我</div><span class="sw" id="meSwitch">切换</span></div>
+    </div>
   </aside>
   <div class="scrim" id="scrim"></div>
   <div class="main">
     <div class="topbar">
       <button class="ham" id="ham" aria-label="切换导航栏">☰</button>
       <span class="crumb" id="crumb">概览</span>
+      <span class="mode-pill" id="modePill"></span>
       <span class="spacer"></span>
       <button class="tbtn" id="newForm">＋ 新建表单</button>
       <button class="tbtn primary" id="quickFill">发起填报</button>
@@ -179,9 +214,9 @@
 <script>
 /* =========================================================================
    好队友 · application shell.
-   The root is now a persistent frame: sidebar + topbar, with the content area
-   swapping modules in place (via iframe) and a native "overview" landing for
-   view / approve / design. All modules share localStorage on this origin.
+   The root is a persistent frame: sidebar + topbar, with the content area
+   swapping modules in place (via iframe) and a native "overview" landing
+   with an onboarding checklist. All modules share localStorage on this origin.
    ========================================================================= */
 const NAV=[
   {id:'overview',icon:'🏠',label:'概览',native:true},
@@ -218,7 +253,7 @@ function renderNav(){
   const authed=!!(window.HDY&&HDY.isAuthed());
   el.innerHTML=NAV.filter(n=>!n.authed||authed).map(n=> n.sep!==undefined
     ? `<div class="sep">${esc(n.sep||'')}</div>`
-    : `<button data-id="${n.id}"><span class="ic">${n.icon}</span><span class="lbl">${esc(n.label)}</span>${n.badge?`<span class="badge" data-badge="${n.badge}"></span>`:''}</button>`
+    : `<button data-id="${n.id}" title="${esc(n.label)}"><span class="ic">${n.icon}</span><span class="lbl">${esc(n.label)}</span>${n.badge?`<span class="badge" data-badge="${n.badge}"></span>`:''}</button>`
   ).join('');
   el.querySelectorAll('button[data-id]').forEach(b=>b.onclick=()=>{
     const n=NAV_MAP[b.dataset.id];
@@ -255,25 +290,62 @@ window.addEventListener('hashchange',route);
 // hide the loader once the framed module finishes booting
 document.getElementById('frame').addEventListener('load',()=>{ document.getElementById('floader').classList.remove('show'); document.getElementById('frame').classList.add('show'); });
 
+/* ---- onboarding checklist ---- */
+function obSteps(){
+  const FORM=read('hdy.formbuilder.v1',null), FLOW=read('hdy.flow.v1',null);
+  const instances=read('hdy.instances.v1',[]);
+  const fieldCount=FORM&&Array.isArray(FORM.fields)?FORM.fields.filter(f=>!LAYOUT.includes(f.type)).length:0;
+  let nodeCount=0;(function walk(ch){if(!ch)return;ch.forEach(x=>{nodeCount++;if(x.type==='condition')(x.branches||[]).forEach(b=>walk(b.children));});})(FLOW?FLOW.root:[]);
+  const acted=instances.some(i=>i.status==='approved'||i.status==='rejected'||(i.steps||[]).some(s=>s.actedAt));
+  return [
+    {done:fieldCount>0,   icon:'🧩', t:'设计表单',     s:'添加字段，搭好数据结构', go:'form'},
+    {done:nodeCount>0,    icon:'🔀', t:'配置审批流程', s:'设定审批人与条件分支',   go:'flow'},
+    {done:instances.length>0, icon:'📝', t:'发起一笔填报', s:'像员工一样提交一张单据', go:'fill'},
+    {done:acted,          icon:'✅', t:'完成一次审批', s:'在待办中同意或驳回',     go:'todo'},
+  ];
+}
+function obHtml(){
+  if(localStorage.getItem('hdy.onboard.hide')==='1') return '';
+  const steps=obSteps(); const done=steps.filter(s=>s.done).length;
+  if(done===steps.length) return '';
+  return `<div class="ob">
+    <button class="ob-x" id="obHide" title="不再显示">✕</button>
+    <div class="ob-head"><div><h2>🚀 四步上手 好队友</h2><div class="ob-sub">从建表到跑通第一条审批，大约 3 分钟</div></div>
+      <div class="ob-prog"><span>${done}/${steps.length}</span><div class="ob-track"><div class="ob-fill" style="width:${done/steps.length*100}%"></div></div></div></div>
+    <div class="ob-steps">${steps.map((s,i)=>`
+      <div class="ob-step ${s.done?'done':''}" data-go="${s.go}">
+        <div class="oic">${s.done?'✓':s.icon}</div>
+        <div class="grow"><h4>${i+1}. ${s.t}${s.done?'<span class="ck">已完成</span>':''}</h4><p>${s.s}</p></div>
+      </div>`).join('')}</div>
+  </div>`;
+}
+
 /* ---- overview ---- */
+/* signature of rendered data — skip no-op re-renders on focus/storage so a
+   re-render can't replace the DOM mid-click and swallow the user's tap */
+function snapshot(){ return ['hdy.formbuilder.v1','hdy.flow.v1','hdy.instances.v1','hdy.notif.v1','hdy.user.v1','hdy.onboard.hide'].map(k=>localStorage.getItem(k)||'').join(' '); }
+let lastSnap='';
+function ovShowing(){ return document.getElementById('overview').classList.contains('show'); }
 function renderOverview(){
+  lastSnap=snapshot();
   updateBadges();
   const FORM=read('hdy.formbuilder.v1',null), FLOW=read('hdy.flow.v1',null);
   const instances=read('hdy.instances.v1',[]), notifs=read('hdy.notif.v1',[]);
   const me=read('hdy.user.v1','我');
   const fieldCount=FORM&&Array.isArray(FORM.fields)?FORM.fields.filter(f=>!LAYOUT.includes(f.type)).length:0;
-  let nodeCount=0;(function walk(ch){if(!ch)return;ch.forEach(x=>{nodeCount++;if(x.type==='condition')x.branches.forEach(b=>walk(b.children));});})(FLOW?FLOW.root:[]);
+  let nodeCount=0;(function walk(ch){if(!ch)return;ch.forEach(x=>{nodeCount++;if(x.type==='condition')(x.branches||[]).forEach(b=>walk(b.children));});})(FLOW?FLOW.root:[]);
   const running=instances.filter(i=>i.status==='running').length;
   const approved=instances.filter(i=>i.status==='approved').length;
   const pending=instances.filter(isPending).length;
-  const unread=notifs.filter(n=>!n.read).length;
   const recent=instances.slice(0,6);
   const pend=instances.filter(isPending).slice(0,6);
   const now=new Date(); const dstr=`${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`;
+  const hour=now.getHours(); const greet=hour<5?'夜深了':hour<11?'早上好':hour<14?'中午好':hour<18?'下午好':'晚上好';
 
   const ov=document.getElementById('overview');
   ov.innerHTML=`
-    <div class="head"><div><div class="date">${dstr}</div><h1>你好，${esc(me)} 👋</h1></div></div>
+    <div class="head"><div><div class="date">${dstr}</div><h1>${greet}，${esc(me)} 👋</h1></div></div>
+    ${obHtml()}
     <div class="ov-actions">
       <div class="act" data-go="manage"><div class="ic blue">📋</div><div><h3>查看数据</h3><p>浏览所有提交记录、看板与报表</p></div><span class="arrow">›</span></div>
       <div class="act" data-go="todo"><div class="ic green">✅</div><div><h3>去审批</h3><p>处理待你审批的单据</p></div><span class="arrow">›</span><span class="nbadge ${pending?'show':''}">${pending} 待办</span></div>
@@ -303,9 +375,11 @@ function renderOverview(){
   ov.querySelectorAll('[data-go]').forEach(e=>e.onclick=()=>go(e.dataset.go));
   ov.querySelectorAll('[data-go2]').forEach(e=>e.onclick=()=>go(e.dataset.go2));
   ov.querySelectorAll('[data-open]').forEach(e=>e.onclick=()=>{ go('manage'); });
+  const ox=ov.querySelector('#obHide'); if(ox) ox.onclick=(e)=>{ e.stopPropagation(); localStorage.setItem('hdy.onboard.hide','1'); renderOverview(); };
 }
 
-/* ---- identity ---- */
+/* ---- identity + mode ---- */
+let serverAlive=false;
 function paintMe(){
   const me=read('hdy.user.v1','我'); const meta=read('hdy.auth.me',null);
   document.getElementById('meNm').textContent=me; document.getElementById('meAv').textContent=(me[0]||'我');
@@ -313,6 +387,16 @@ function paintMe(){
   const sw=document.getElementById('meSwitch');
   if(meta&&meta.org){ document.querySelector('.side .foot .me .nm').title=meta.org.name+' · '+roleLabel(meta.role); sw.textContent='退出'; sw.dataset.mode='logout'; }
   else { sw.textContent='切换'; sw.dataset.mode='switch'; }
+  paintMode();
+}
+function paintMode(){
+  const authed=!!(window.HDY&&HDY.isAuthed());
+  const pill=document.getElementById('modePill'), lgn=document.getElementById('meLogin');
+  if(authed){ pill.style.display='none'; lgn.style.display='none'; return; }
+  pill.style.display='inline-flex';
+  pill.innerHTML='本地演示模式 · 数据保存在本机'+(serverAlive?'　<a id="pillLogin">登录团队 →</a>':'');
+  const a=pill.querySelector('#pillLogin'); if(a) a.onclick=()=>showAuth();
+  lgn.style.display=serverAlive?'flex':'none'; lgn.onclick=()=>showAuth();
 }
 function roleLabel(r){ return ({owner:'所有者',admin:'管理员',member:'成员',viewer:'访客'})[r]||r; }
 document.getElementById('meSwitch').onclick=()=>{
@@ -323,7 +407,7 @@ document.getElementById('meSwitch').onclick=()=>{
 
 /* ---- auth gate ---- */
 let authMode='login';
-function showAuth(){ document.getElementById('auth').classList.add('show'); renderAuth(); }
+function showAuth(){ document.getElementById('auth').classList.add('show'); document.getElementById('authClose').classList.toggle('show',booted); renderAuth(); }
 function hideAuth(){ document.getElementById('auth').classList.remove('show'); }
 function renderAuth(){
   const login = authMode==='login';
@@ -344,36 +428,48 @@ function renderAuth(){
 }
 function authErr(msg){ const e=document.getElementById('authErr'); e.textContent=msg; e.classList.add('show'); }
 async function doAuth(){
-  const btn=document.getElementById('authGo'); btn.disabled=true; document.getElementById('authErr').classList.remove('show');
+  const btn=document.getElementById('authGo'); if(btn.disabled) return;
+  btn.disabled=true; document.getElementById('authErr').classList.remove('show');
   const email=val('f_email'), pw=val('f_pw');
   try{
     if(authMode==='login') await HDY.login({email,password:pw});
     else await HDY.signup({email,password:pw,orgName:val('f_org'),name:val('f_name')});
     await HDY.pull().catch(()=>{});   // load org data into local store
-    hideAuth(); bootApp();
+    localStorage.removeItem('hdy.demoMode');
+    hideAuth();
+    if(booted) location.reload();     // logged in from demo mode → full re-init
+    else bootApp();
   }catch(err){ authErr(err.message||'操作失败，请重试'); btn.disabled=false; }
 }
 function val(id){ const e=document.getElementById(id); return e?e.value.trim():''; }
 document.getElementById('authGo').onclick=doAuth;
 document.getElementById('auth').addEventListener('keydown',e=>{ if(e.key==='Enter') doAuth(); });
+document.getElementById('authClose').onclick=hideAuth;
 document.getElementById('demoLink').onclick=()=>{ localStorage.setItem('hdy.demoMode','1'); hideAuth(); bootApp(); };
 
 /* ---- topbar / chrome ---- */
 document.getElementById('newForm').onclick=()=>go('form');
 document.getElementById('quickFill').onclick=()=>go('fill');   // 发起填报 → mobile workbench (fill)
-document.getElementById('ham').onclick=()=>{ const s=document.getElementById('shell'); if(window.innerWidth<=860) s.classList.toggle('mopen'); else s.classList.toggle('collapsed'); };
+document.getElementById('ham').onclick=()=>{
+  const s=document.getElementById('shell');
+  if(window.innerWidth<=860){ s.classList.toggle('mopen'); return; }
+  s.classList.toggle('collapsed');
+  localStorage.setItem('hdy.ui.side', s.classList.contains('collapsed')?'min':'full');
+};
 document.getElementById('scrim').onclick=()=>document.getElementById('shell').classList.remove('mopen');
 
 /* refresh overview stats when the iframe’s data may have changed */
-window.addEventListener('focus',()=>{ updateBadges(); if(document.getElementById('overview').classList.contains('show')) renderOverview(); });
+function refreshIfChanged(){ updateBadges(); if(ovShowing() && snapshot()!==lastSnap) renderOverview(); }
+window.addEventListener('focus',refreshIfChanged);
 // live sync: any module wrote shared data → refresh badges + overview instantly
-window.addEventListener('storage',e=>{ if(e.key&&e.key.indexOf('hdy.')!==0)return; updateBadges(); if(document.getElementById('overview').classList.contains('show')) renderOverview(); });
+window.addEventListener('storage',e=>{ if(e.key&&e.key.indexOf('hdy.')!==0)return; refreshIfChanged(); });
 setInterval(updateBadges, 4000);   // safety net for the 待办 badge
 
 /* ---- boot ---- */
 let booted=false;
 function bootApp(){
   if(booted) return; booted=true;
+  if(localStorage.getItem('hdy.ui.side')==='min' && window.innerWidth>860) document.getElementById('shell').classList.add('collapsed');
   renderNav(); paintMe();
   if(!location.hash){ location.hash='overview'; }
   route();
@@ -381,18 +477,18 @@ function bootApp(){
   // (pull writes localStorage → iframes refresh via storage events; the shell
   //  isn't notified of its own writes, so refresh it explicitly here.)
   if(HDY.isAuthed()){
-    const refresh=()=>{ updateBadges(); if(document.getElementById('overview').classList.contains('show')) renderOverview(); };
-    HDY.pull().then(refresh).catch(()=>{});
-    setInterval(()=>HDY.pull().then(refresh).catch(()=>{}), 15000);
+    HDY.pull().then(refreshIfChanged).catch(()=>{});
+    setInterval(()=>HDY.pull().then(refreshIfChanged).catch(()=>{}), 15000);
   }
 }
 async function start(){
   // Decide: real auth vs local demo. Only show the login wall if a backend is
   // actually reachable — otherwise (static hosting like githack) boot locally.
+  // The probe runs in the background so an authed/demo boot is never delayed.
+  const probe=HDY.ping().then(ok=>{ serverAlive=ok; if(booted) paintMode(); return ok; });
   if(HDY.isAuthed()){ bootApp(); return; }
   if(localStorage.getItem('hdy.demoMode')==='1'){ bootApp(); return; }
-  const hasServer = await HDY.ping();
-  if(hasServer){ showAuth(); } else { bootApp(); }
+  if(await probe){ showAuth(); } else { bootApp(); }
 }
 start();
 if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{})); }

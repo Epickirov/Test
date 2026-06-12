@@ -49,7 +49,7 @@ addEventListener('DOMContentLoaded',function(){if(document.documentElement.datas
   .cell:nth-child(7n){border-right:0}
   .cell.dim{background:#fafbfd}
   .cell .d{font-size:12px;color:var(--muted);margin-bottom:4px}
-  .cell.today .d{color:#fff;background:var(--accent);border-radius:50%;width:21px;height:21px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 2px 6px -1px rgba(22,119,255,.5)}
+  .cell.today .d{color:#fff;background:var(--accent);border-radius:50%;width:21px;height:21px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 2px 6px -1px var(--accent-glow)}
   .ev{font-size:11px;background:var(--accent-weak);color:var(--accent);border-radius:6px;padding:2px 6px;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;font-weight:500;transition:filter .12s}
   .ev:hover{filter:brightness(.96)}
   .ev.ok{background:var(--green-weak);color:var(--green)}.ev.no{background:var(--danger-weak);color:var(--danger)}.ev.run{background:var(--amber-weak);color:var(--amber)}
@@ -123,7 +123,12 @@ const AGG_LABELS={count:'计数',sum:'求和',avg:'平均',min:'最小',max:'最
 function defaultCardFields(){ return dataFields().filter(f=>f.key!==st.groupBy).slice(0,3).map(f=>f.key); }
 function currentCardFields(){ return Array.isArray(st.cardFields)&&st.cardFields.length ? st.cardFields : defaultCardFields(); }
 
+/* signature of rendered data — skip no-op re-renders on focus/storage so a
+   re-render can't replace the DOM mid-click and swallow the user's tap */
+function snapshot(){ return [LS.form,LS.inst].map(k=>localStorage.getItem(k)||'').join(' '); }
+let lastSnap='';
 function render(){
+  lastSnap=snapshot();
   document.getElementById('formName').textContent=FORM?('· '+(FORM.title||'')):'';
   const wrap=document.getElementById('wrap');
   if(!FORM||!dataFields().length){ document.getElementById('toolbar').innerHTML=''; wrap.innerHTML=`<div class="empty"><div class="big">🗂️</div><p>还没有表单。请先到 <a href="form.html">表单设计器</a> 建表。</p></div>`; return; }
@@ -224,7 +229,7 @@ function renderKanban(wrap){
 function kcard(i){
   const fs=currentCardFields().map(k=>dataFields().find(f=>f.key===k)).filter(Boolean);
   const rows=fs.map(f=>`<div class="kf"><span>${esc(f.label)}</span><span class="v">${esc(cell(f,i.data&&i.data[f.key]))}</span></div>`).join('');
-  return `<div class="kcard" draggable="true" data-id="${i.id}">
+  return `<div class="kcard" draggable="true" data-id="${i.id}" title="拖动换列 · 点击查看/打印单据">
     <div class="kt">${esc(i.title||'记录')}</div>${rows}
     <div class="foot"><span class="avatar">${esc((i.initiator||'?')[0])}</span>${esc(i.initiator||'')}<span class="pill ${statusCls(i.status)}" style="margin-left:auto">${statusTxt(i.status)}</span></div>
   </div>`;
@@ -249,7 +254,10 @@ function moveCard(id,target){
   const val = target==='__none'? '' : target;
   if(String(groupVal(inst))===String(target)){ return; }
   inst.data=inst.data||{}; inst.data[st.groupBy]=val;
-  write(LS.inst,instances); bumpSync(); render(); toast('已更新：'+ (dataFields().find(f=>f.key===st.groupBy)||{}).label +' → '+(val||'（清空）'));
+  write(LS.inst,instances); bumpSync();
+  // mirror the field change to the server copy when signed in
+  if(window.HDY&&HDY.isAuthed()&&inst.srvId) HDY.updateDocument(inst.srvId,{data:inst.data}).catch(()=>{});
+  render(); toast('已更新：'+ (dataFields().find(f=>f.key===st.groupBy)||{}).label +' → '+(val||'（清空）'));
 }
 
 /* ---------------- Calendar ---------------- */
@@ -287,9 +295,10 @@ function renderCalendar(wrap){
 
 document.getElementById('refresh').onclick=()=>{FORM=read(LS.form,null);instances=read(LS.inst,[]);render();};
 function bumpSync(){ try{ localStorage.setItem('hdy.sync', Date.now()+'.'+Math.random()); }catch(e){} }
-window.addEventListener('focus',()=>{FORM=read(LS.form,null);instances=read(LS.inst,[]);render();});
+function refreshIfChanged(){ if(snapshot()===lastSnap)return; FORM=read(LS.form,null);instances=read(LS.inst,[]);render(); }
+window.addEventListener('focus',refreshIfChanged);
 // live sync from other modules
-window.addEventListener('storage',e=>{ if(e.key&&e.key.indexOf('hdy.')!==0)return; FORM=read(LS.form,null);instances=read(LS.inst,[]);render(); });
+window.addEventListener('storage',e=>{ if(e.key&&e.key.indexOf('hdy.')!==0)return; refreshIfChanged(); });
 render();
 </script>
 </body>

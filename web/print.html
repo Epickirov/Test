@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>打印单据 · Print</title>
 <style>
-  :root{--ink:#1f2329;--muted:#6b7177;--border:#d9dde2;--accent:#1677ff}
+  :root{--ink:#1f2329;--muted:#6b7177;--border:#d9dde2;--accent:#2e62f0}
   *{box-sizing:border-box}
   html,body{margin:0}
   body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:var(--ink);background:#eceff2;font-size:13px}
@@ -69,12 +69,13 @@ const sheet=document.getElementById('sheet');
 if(!inst){ sheet.innerHTML='<div class="empty">未找到该单据。请从「数据管理」中点击「打印」进入。</div>'; }
 else{
   const fs=dataFields();
+  const D=inst.data||{};
   // key-value table, two columns per row
   let kv='<table class="kv">';
   for(let i=0;i<fs.length;i+=2){
     const a=fs[i], b=fs[i+1];
-    kv+=`<tr><td class="k">${esc(a.label)}</td><td>${cell(a,inst.data[a.key])}</td>`;
-    kv+= b?`<td class="k">${esc(b.label)}</td><td>${cell(b,inst.data[b.key])}</td></tr>`:`<td></td><td></td></tr>`;
+    kv+=`<tr><td class="k">${esc(a.label)}</td><td>${cell(a,D[a.key])}</td>`;
+    kv+= b?`<td class="k">${esc(b.label)}</td><td>${cell(b,D[b.key])}</td></tr>`:`<td></td><td></td></tr>`;
   }
   kv+='</table>';
 
