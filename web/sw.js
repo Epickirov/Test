@@ -1,10 +1,11 @@
 /* 好队友 PWA service worker — app-shell cache + offline fallback.
-   Data lives in localStorage, so we only need to cache static shell assets. */
-const CACHE = 'hdy-pwa-v11';
+   Data lives in localStorage, so we only need to cache static shell assets.
+   HTML is network-first (deploys show up immediately); other assets cache-first. */
+const CACHE = 'hdy-pwa-v12';
 const ASSETS = [
   './index.html', './form.html', './flow.html', './manage.html', './app.html',
   './dashboard.html', './print.html', './views.html', './team.html', './sync.js',
-  './manifest.webmanifest',
+  './ui.css', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-180.png',
 ];
 
@@ -25,14 +26,29 @@ self.addEventListener('activate', (e) => {
   })());
 });
 
-// cache-first for shell, then network; fall back to cached app shell when offline
+// HTML: network-first with cache fallback (fresh deploys, still works offline).
+// Everything else: cache-first, then network. API traffic is never cached.
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
-  // never cache API traffic — always hit the network for live data
-  if (new URL(req.url).pathname.startsWith('/api/')) return;
+  const url = new URL(req.url);
+  if (url.pathname.startsWith('/api/')) return;
+  const isHtml = req.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname.endsWith('/');
   e.respondWith((async () => {
-    const cached = await caches.match(req);
+    if (isHtml) {
+      try {
+        const res = await fetch(req);
+        if (res && res.status === 200 && res.type === 'basic') {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(req, copy));
+        }
+        return res;
+      } catch (err) {
+        return (await caches.match(req, { ignoreSearch: true }))
+          || (await caches.match('./app.html')) || Response.error();
+      }
+    }
+    const cached = await caches.match(req, { ignoreSearch: true });
     if (cached) return cached;
     try {
       const res = await fetch(req);

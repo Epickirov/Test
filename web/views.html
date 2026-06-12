@@ -8,67 +8,60 @@
 <script>try{if(window.self!==window.top)document.documentElement.dataset.embed=1;}catch(e){document.documentElement.dataset.embed=1;}
 addEventListener('DOMContentLoaded',function(){if(document.documentElement.dataset.embed)document.body.classList.add('embedded');});</script>
 <title>多视图 · Kanban / Calendar</title>
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="stylesheet" href="ui.css" />
 <style>
-  :root{--accent:#1677ff;--accent-weak:#e8f1ff;--bg:#f5f6f8;--panel:#fff;--border:#e6e8eb;
-    --text:#1f2329;--muted:#8a8f99;--green:#0a8f4e;--amber:#d48806;--danger:#e5484d;--purple:#6b46c1}
-  *{box-sizing:border-box}
-  html,body{margin:0;height:100%}
-  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);background:var(--bg);font-size:13px}
-  .app{display:flex;flex-direction:column;height:100vh}
-  .topbar{display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--border);flex:0 0 auto}
-  .topbar .logo{font-weight:700;color:var(--accent);font-size:15px}
-  .topbar .spacer{flex:1}
-  .btn{border:1px solid var(--border);background:#fff;color:var(--text);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-block}
-  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  body{font-size:13px}
+  .app{display:flex;flex-direction:column;height:100vh;height:100dvh}
   .toolbar{display:flex;align-items:center;gap:10px;padding:10px 16px;flex-wrap:wrap;background:var(--panel);border-bottom:1px solid var(--border)}
-  .segt{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
-  .segt button{border:0;background:#fff;padding:7px 16px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted)}
-  .segt button.on{background:var(--accent);color:#fff}
   .toolbar label{color:var(--muted);font-size:12px}
-  .toolbar select{border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-size:13px}
+  .toolbar select{border:1px solid var(--border-strong);border-radius:8px;padding:6px 9px;font-size:13px;background:#fff}
+  .toolbar select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-weak)}
   .wrap{flex:1;overflow:auto;padding:16px}
-  .empty{text-align:center;color:var(--muted);padding:70px 16px}.empty .big{font-size:46px;opacity:.4}.empty a{color:var(--accent)}
   /* kanban */
   .board{display:flex;gap:14px;align-items:flex-start;min-height:100%}
-  .col{flex:0 0 280px;background:#eef0f3;border-radius:12px;padding:10px;display:flex;flex-direction:column;max-height:100%}
+  .col{flex:0 0 286px;background:#edf0f5;border-radius:var(--r-lg);padding:10px;display:flex;flex-direction:column;max-height:100%}
   .col.dragover{outline:2px dashed var(--accent);outline-offset:-2px;background:var(--accent-weak)}
-  .col-h{display:flex;align-items:center;gap:8px;padding:4px 6px 10px;font-weight:600}
-  .col-h .cnt{margin-left:auto;background:#fff;border-radius:10px;padding:0 8px;font-size:12px;color:var(--muted)}
-  .col-h .swatch{width:10px;height:10px;border-radius:3px}
-  .col-sum{font-size:11px;color:var(--muted);padding:0 6px 8px}
-  .cards{display:flex;flex-direction:column;gap:8px;overflow:auto;flex:1;min-height:30px}
-  .kcard{background:#fff;border:1px solid var(--border);border-radius:9px;padding:10px;cursor:grab;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .col-h{display:flex;align-items:center;gap:8px;padding:5px 7px 10px;font-weight:650}
+  .col-h .cnt{margin-left:auto;background:#fff;border-radius:999px;padding:1px 9px;font-size:11.5px;color:var(--muted);font-weight:600}
+  .col-h .swatch{width:10px;height:10px;border-radius:3px;box-shadow:0 0 0 3px rgba(255,255,255,.7)}
+  .col-sum{font-size:11px;color:var(--muted);padding:0 7px 9px}
+  .cards{display:flex;flex-direction:column;gap:9px;overflow:auto;flex:1;min-height:30px;padding:1px}
+  .kcard{background:#fff;border:1px solid transparent;border-radius:var(--r-md);padding:11px 12px;cursor:grab;box-shadow:var(--shadow-sm);transition:box-shadow .12s,transform .12s,border-color .12s}
+  .kcard:hover{box-shadow:var(--shadow-md);transform:translateY(-1px);border-color:#d9e6ff}
   .kcard:active{cursor:grabbing}
-  .kcard.drag{opacity:.4}
-  .kcard .kt{font-weight:600;margin-bottom:4px;font-size:13px;display:flex;align-items:center;gap:6px}
+  .kcard.drag{opacity:.4;transform:rotate(1.5deg)}
+  .kcard .kt{font-weight:600;margin-bottom:5px;font-size:13px;display:flex;align-items:center;gap:6px}
   .kcard .kf{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted);margin-top:3px}
   .kcard .kf .v{color:var(--text);font-weight:600;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .kcard .foot{display:flex;align-items:center;gap:6px;margin-top:7px;font-size:11px;color:var(--muted)}
-  .pill{display:inline-block;border-radius:9px;padding:0 7px;font-size:10px;font-weight:700}
-  .pill.run{background:#fff7e6;color:var(--amber)}.pill.ok{background:#eaf7ee;color:var(--green)}.pill.no{background:#fde8e8;color:var(--danger)}
-  .avatar{width:18px;height:18px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px}
+  .kcard .foot{display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:11px;color:var(--muted)}
+  .kcard .pill{font-size:10px;padding:1px 8px}
+  .avatar{width:18px;height:18px;border-radius:50%;background:var(--accent-grad);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px}
   /* calendar */
-  .cal{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;max-width:1000px;margin:0 auto}
-  .cal-head{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)}
+  .cal{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;max-width:1000px;margin:0 auto;box-shadow:var(--shadow-sm)}
+  .cal-head{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid var(--border)}
   .cal-head .m{font-weight:700;font-size:16px}
   .cal-head .nav{display:flex;gap:6px}
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr)}
-  .cal-grid .dow{padding:8px;text-align:center;color:var(--muted);font-size:12px;border-bottom:1px solid var(--border);font-weight:600}
-  .cell{min-height:104px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:5px 6px;overflow:hidden}
+  .cal-grid .dow{padding:9px;text-align:center;color:var(--muted);font-size:12px;border-bottom:1px solid var(--border);font-weight:600;background:#f8fafd}
+  .cell{min-height:104px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:6px 7px;overflow:hidden;transition:background .12s}
+  .cell:hover{background:#fbfdff}
   .cell:nth-child(7n){border-right:0}
-  .cell.dim{background:#fafbfc}
-  .cell .d{font-size:12px;color:var(--muted);margin-bottom:4px}.cell.today .d{color:#fff;background:var(--accent);border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center}
-  .ev{font-size:11px;background:var(--accent-weak);color:var(--accent);border-radius:5px;padding:2px 5px;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
-  .ev.ok{background:#eaf7ee;color:var(--green)}.ev.no{background:#fde8e8;color:var(--danger)}.ev.run{background:#fff7e6;color:var(--amber)}
-  .popover{position:fixed;z-index:80;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);padding:6px;min-width:248px;max-height:62vh;overflow:auto;display:none}
-  .popover.show{display:block}
-  .popover .pop-h{display:flex;align-items:center;font-weight:600;padding:6px 8px;font-size:12px;color:var(--muted)}
+  .cell.dim{background:#fafbfd}
+  .cell .d{font-size:12px;color:var(--muted);margin-bottom:4px}
+  .cell.today .d{color:#fff;background:var(--accent);border-radius:50%;width:21px;height:21px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 2px 6px -1px rgba(22,119,255,.5)}
+  .ev{font-size:11px;background:var(--accent-weak);color:var(--accent);border-radius:6px;padding:2px 6px;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;font-weight:500;transition:filter .12s}
+  .ev:hover{filter:brightness(.96)}
+  .ev.ok{background:var(--green-weak);color:var(--green)}.ev.no{background:var(--danger-weak);color:var(--danger)}.ev.run{background:var(--amber-weak);color:var(--amber)}
+  .popover{position:fixed;z-index:80;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);padding:6px;min-width:250px;max-height:62vh;overflow:auto;display:none}
+  .popover.show{display:block;animation:pop .15s ease}
+  .popover .pop-h{display:flex;align-items:center;font-weight:600;padding:7px 9px;font-size:12px;color:var(--muted)}
   .popover .pop-reset{margin-left:auto;border:0;background:none;color:var(--accent);cursor:pointer;font-size:12px}
-  .popover .pop-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:13px}
+  .popover .pop-row{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:8px;cursor:pointer;font-size:13px}
   .popover .pop-row:hover{background:var(--accent-weak)}
+  .popover .pop-row input{accent-color:var(--accent)}
   .popover .pop-type{margin-left:auto;color:var(--muted);font-size:10px}
-  .popover .pop-f{padding:6px 8px 4px;font-size:11px}
-  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1f2329;color:#fff;padding:9px 16px;border-radius:8px;opacity:0;transition:.25s;pointer-events:none;z-index:90}.toast.show{opacity:.95}
+  .popover .pop-f{padding:7px 9px 5px;font-size:11px}
 </style>
 </head>
 <body>
@@ -107,7 +100,14 @@ const choiceFields=()=>dataFields().filter(f=>CHOICE.includes(f.type));
 const dateFields=()=>dataFields().filter(f=>DATEISH.includes(f.type));
 const numFields=()=>dataFields().filter(f=>NUMERIC.includes(f.type));
 function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function escA(s){return esc(s).replace(/'/g,'&#39;');}
 function num(x){const n=parseFloat(x);return isNaN(n)?0:n;}
+/* parse date-only strings ('2024-01-15') in LOCAL time — new Date('YYYY-MM-DD')
+   is parsed as UTC midnight and shifts a day in western timezones */
+function parseDate(raw){
+  if(typeof raw==='string'){ const m=raw.match(/^(\d{4})-(\d{2})-(\d{2})$/); if(m) return new Date(+m[1],+m[2]-1,+m[3]); }
+  const d=new Date(raw); return isNaN(d)?null:d;
+}
 function fmtN(n){return (Math.round(n*100)/100).toLocaleString();}
 function statusCls(s){return s==='approved'?'ok':s==='rejected'?'no':'run';}
 function statusTxt(s){return s==='approved'?'已通过':s==='rejected'?'已驳回':'审批中';}
@@ -136,16 +136,16 @@ function renderToolbar(){
   const tb=document.getElementById('toolbar');
   // group-by: status + any choice field
   const groupOpts=[`<option value="__status" ${st.groupBy==='__status'?'selected':''}>审批状态</option>`]
-    .concat(choiceFields().map(f=>`<option value="${f.key}" ${st.groupBy===f.key?'selected':''}>${esc(f.label)}</option>`)).join('');
+    .concat(choiceFields().map(f=>`<option value="${escA(f.key)}" ${st.groupBy===f.key?'selected':''}>${esc(f.label)}</option>`)).join('');
   const nfs=numFields();
   if(st.aggFn!=='count' && !nfs.some(f=>f.key===st.aggField)) st.aggField = nfs[0]?nfs[0].key:'';
   const aggList = nfs.length? ['count','sum','avg','min','max'] : ['count'];
   const aggFnOpts = aggList.map(a=>`<option value="${a}" ${st.aggFn===a?'selected':''}>${AGG_LABELS[a]}</option>`).join('');
-  const aggFieldOpts = nfs.map(f=>`<option value="${f.key}" ${st.aggField===f.key?'selected':''}>${esc(f.label)}</option>`).join('');
+  const aggFieldOpts = nfs.map(f=>`<option value="${escA(f.key)}" ${st.aggField===f.key?'selected':''}>${esc(f.label)}</option>`).join('');
   const cardSel = Array.isArray(st.cardFields)&&st.cardFields.length;
   const cardBtnLabel = cardSel? `卡片字段 (${st.cardFields.length})` : '卡片字段 (自动)';
   const dfs=dateFields(); if(!st.dateKey && dfs.length) st.dateKey=dfs[0].key;
-  const dateOpts=dfs.map(f=>`<option value="${f.key}" ${st.dateKey===f.key?'selected':''}>${esc(f.label)}</option>`).join('');
+  const dateOpts=dfs.map(f=>`<option value="${escA(f.key)}" ${st.dateKey===f.key?'selected':''}>${esc(f.label)}</option>`).join('');
 
   tb.innerHTML=`<div class="segt">
       <button data-mode="kanban" class="${st.mode==='kanban'?'on':''}">▦ 看板</button>
@@ -172,7 +172,7 @@ function openCardPicker(anchor){
   const pop=document.getElementById('cardPop');
   const sel=currentCardFields(), fs=dataFields();
   pop.innerHTML=`<div class="pop-h">卡片显示字段<button class="pop-reset" id="popReset">恢复默认</button></div>`
-    + fs.map(f=>`<label class="pop-row"><input type="checkbox" data-k="${f.key}" ${sel.includes(f.key)?'checked':''}> ${esc(f.label)} <span class="pop-type">${f.type}</span></label>`).join('')
+    + fs.map(f=>`<label class="pop-row"><input type="checkbox" data-k="${escA(f.key)}" ${sel.includes(f.key)?'checked':''}> ${esc(f.label)} <span class="pop-type">${esc(f.type)}</span></label>`).join('')
     + `<div class="pop-f muted">勾选要在卡片上显示的字段（建议 2–5 个）</div>`;
   const r=anchor.getBoundingClientRect();
   pop.style.left=Math.max(8,Math.min(r.left, window.innerWidth-264))+'px';
@@ -260,7 +260,7 @@ function renderCalendar(wrap){
   const first=new Date(y,m,1), start=new Date(first); start.setDate(1-((first.getDay()+6)%7)); // week starts Monday
   // bucket events by yyyy-mm-dd
   const ev={};
-  instances.forEach(i=>{ const raw=i.data&&i.data[st.dateKey]; if(!raw)return; const d=new Date(raw); if(isNaN(d))return;
+  instances.forEach(i=>{ const raw=i.data&&i.data[st.dateKey]; if(!raw)return; const d=parseDate(raw); if(!d)return;
     const k=d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); (ev[k]=ev[k]||[]).push(i); });
   const dows=['一','二','三','四','五','六','日'];
   let cells='';

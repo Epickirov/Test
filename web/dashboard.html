@@ -8,51 +8,46 @@
 <script>try{if(window.self!==window.top)document.documentElement.dataset.embed=1;}catch(e){document.documentElement.dataset.embed=1;}
 addEventListener('DOMContentLoaded',function(){if(document.documentElement.dataset.embed)document.body.classList.add('embedded');});</script>
 <title>数据看板 · Dashboard</title>
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="stylesheet" href="ui.css" />
 <style>
-  :root{--accent:#1677ff;--accent-weak:#e8f1ff;--bg:#f5f6f8;--panel:#fff;--border:#e6e8eb;
-    --text:#1f2329;--muted:#8a8f99;--green:#0a8f4e;--amber:#d48806;--danger:#e5484d;--purple:#6b46c1}
-  *{box-sizing:border-box}
-  html,body{margin:0;height:100%}
-  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);background:var(--bg);font-size:13px}
+  body{font-size:13px}
   .app{display:flex;flex-direction:column;min-height:100vh}
-  .topbar{display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--border)}
-  .topbar .logo{font-weight:700;color:var(--accent);font-size:15px}
-  .topbar .spacer{flex:1}
-  .btn{border:1px solid var(--border);background:#fff;color:var(--text);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-block}
-  .btn:hover{border-color:var(--accent);color:var(--accent)}
-  .wrap{padding:16px;max-width:1100px;margin:0 auto;width:100%}
+  .wrap{padding:18px;max-width:1100px;margin:0 auto;width:100%}
   .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
-  .kpi{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px}
-  .kpi .n{font-size:26px;font-weight:700;line-height:1}
-  .kpi .l{color:var(--muted);font-size:12px;margin-top:6px}
+  .kpi{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-md);padding:15px 16px;box-shadow:var(--shadow-sm);position:relative;overflow:hidden}
+  .kpi::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
+  .kpi.k-amber::after{background:var(--amber)}.kpi.k-green::after{background:var(--green)}.kpi.k-danger::after{background:var(--danger)}.kpi.k-rate::after{background:var(--purple)}
+  .kpi .n{font-size:26px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+  .kpi .l{color:var(--muted);font-size:12px;margin-top:7px}
   .kpi .n.amber{color:var(--amber)}.kpi .n.green{color:var(--green)}.kpi .n.danger{color:var(--danger)}
-  .row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
-  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px}
-  .card h3{margin:0 0 14px;font-size:14px;display:flex;align-items:center;gap:8px}
+  .row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-bottom:14px}
+  .card h3{margin:0 0 16px;font-size:14px;display:flex;align-items:center;gap:8px}
   .card h3 .ctl{margin-left:auto;display:flex;gap:6px}
-  .card h3 select{border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:12px}
+  .card h3 select{border:1px solid var(--border-strong);border-radius:7px;padding:5px 7px;font-size:12px;background:#fff}
+  .card h3 select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-weak)}
   /* donut */
-  .donut-wrap{display:flex;align-items:center;gap:20px}
-  .donut{width:140px;height:140px;border-radius:50%;flex:0 0 auto;position:relative}
-  .donut .hole{position:absolute;inset:24px;background:var(--panel);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center}
-  .donut .hole b{font-size:24px}.donut .hole span{color:var(--muted);font-size:11px}
-  .legend{display:flex;flex-direction:column;gap:8px}
-  .legend .item{display:flex;align-items:center;gap:8px;font-size:13px}
-  .legend .dot{width:11px;height:11px;border-radius:3px}
+  .donut-wrap{display:flex;align-items:center;gap:22px}
+  .donut{width:144px;height:144px;border-radius:50%;flex:0 0 auto;position:relative}
+  .donut .hole{position:absolute;inset:25px;background:var(--panel);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .donut .hole b{font-size:26px}.donut .hole span{color:var(--muted);font-size:11px}
+  .legend{display:flex;flex-direction:column;gap:9px;min-width:0}
+  .legend .item{display:flex;align-items:center;gap:8px;font-size:13px;white-space:nowrap}
+  .legend .dot{width:11px;height:11px;border-radius:3px;flex:0 0 auto}
   /* bars */
-  .bars{display:flex;flex-direction:column;gap:9px}
+  .bars{display:flex;flex-direction:column;gap:10px}
   .bar-row{display:flex;align-items:center;gap:10px}
   .bar-label{width:120px;text-align:right;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 0 auto}
-  .bar-track{flex:1;background:var(--bg);border-radius:6px;height:18px;overflow:hidden}
-  .bar-fill{height:100%;background:linear-gradient(90deg,#2a86ff,#0958d9);border-radius:6px;min-width:2px}
-  .bar-val{width:64px;text-align:right;font-weight:600;font-size:12px;flex:0 0 auto}
+  .bar-track{flex:1;background:var(--bg);border-radius:6px;height:20px;overflow:hidden}
+  .bar-fill{height:100%;background:var(--accent-grad);border-radius:6px;min-width:2px;transition:width .4s cubic-bezier(.32,.72,.36,1)}
+  .bar-val{width:66px;text-align:right;font-weight:600;font-size:12px;flex:0 0 auto;font-variant-numeric:tabular-nums}
   /* trend (vertical) */
   .trend{display:flex;align-items:flex-end;gap:6px;height:160px;padding-top:8px}
   .trend .col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;min-width:0}
-  .trend .tb{width:70%;max-width:28px;background:linear-gradient(180deg,#4a97ff,#1677ff);border-radius:4px 4px 0 0;min-height:2px}
+  .trend .tb{width:72%;max-width:30px;background:var(--accent-grad);border-radius:5px 5px 0 0;min-height:2px;transition:height .4s cubic-bezier(.32,.72,.36,1)}
+  .trend .col:hover .tb{filter:brightness(1.08)}
   .trend .tl{font-size:10px;color:var(--muted);white-space:nowrap}
-  .trend .tv{font-size:10px;color:var(--muted)}
-  .empty{text-align:center;color:var(--muted);padding:70px 16px}.empty .big{font-size:46px;opacity:.4}.empty a{color:var(--accent)}
+  .trend .tv{font-size:10px;color:var(--muted);font-weight:600}
   @media(max-width:780px){.kpis{grid-template-columns:repeat(3,1fr)}.row{grid-template-columns:1fr}}
 </style>
 </head>
@@ -101,10 +96,10 @@ function render(){
   wrap.innerHTML=`
     <div class="kpis">
       <div class="kpi"><div class="n">${total}</div><div class="l">总提交</div></div>
-      <div class="kpi"><div class="n amber">${running}</div><div class="l">审批中</div></div>
-      <div class="kpi"><div class="n green">${approved}</div><div class="l">已通过</div></div>
-      <div class="kpi"><div class="n danger">${rejected}</div><div class="l">已驳回</div></div>
-      <div class="kpi"><div class="n">${rate}%</div><div class="l">通过率</div></div>
+      <div class="kpi k-amber"><div class="n amber">${running}</div><div class="l">审批中</div></div>
+      <div class="kpi k-green"><div class="n green">${approved}</div><div class="l">已通过</div></div>
+      <div class="kpi k-danger"><div class="n danger">${rejected}</div><div class="l">已驳回</div></div>
+      <div class="kpi k-rate"><div class="n">${rate}%</div><div class="l">通过率</div></div>
     </div>
     <div class="row">
       <div class="card"><h3>状态分布</h3>${donut(approved,running,rejected,total)}</div>

@@ -8,74 +8,38 @@
 <script>try{if(window.self!==window.top)document.documentElement.dataset.embed=1;}catch(e){document.documentElement.dataset.embed=1;}
 addEventListener('DOMContentLoaded',function(){if(document.documentElement.dataset.embed)document.body.classList.add('embedded');});</script>
 <title>数据管理 · Submissions</title>
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="stylesheet" href="ui.css" />
 <style>
-  :root{--accent:#1677ff;--accent-weak:#e8f1ff;--bg:#f5f6f8;--panel:#fff;--border:#e6e8eb;
-    --text:#1f2329;--muted:#8a8f99;--danger:#e5484d;--green:#0a8f4e;--amber:#d48806;--radius:8px}
-  *{box-sizing:border-box}
-  html,body{height:100%;margin:0}
-  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);background:var(--bg);font-size:13px}
-  .app{display:flex;flex-direction:column;height:100vh}
-  .topbar{display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--border);flex:0 0 auto}
-  .topbar .logo{font-weight:700;color:var(--accent);font-size:15px}
-  .topbar .spacer{flex:1}
-  .btn{border:1px solid var(--border);background:#fff;color:var(--text);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-block}
-  .btn:hover{border-color:var(--accent);color:var(--accent)}
-  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff} .btn.primary:hover{opacity:.92;color:#fff}
-  .btn.danger{color:var(--danger);border-color:#f0c4c6} .btn.danger:hover{background:#fde8e8}
-  .btn.sm{padding:3px 8px;font-size:12px}
-  .toolbar{display:flex;align-items:center;gap:10px;padding:12px 16px;flex-wrap:wrap}
-  .stats{display:flex;gap:8px}
-  .stat{background:#fff;border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer}
-  .stat b{font-size:16px;margin-right:5px} .stat.on{border-color:var(--accent);color:var(--accent);background:var(--accent-weak)}
+  body{font-size:13px}
+  .app{display:flex;flex-direction:column;height:100vh;height:100dvh}
+  .toolbar{display:flex;align-items:center;gap:10px;padding:13px 16px;flex-wrap:wrap}
+  .stats{display:flex;gap:8px;flex-wrap:wrap}
+  .stat{background:#fff;border:1px solid var(--border-strong);border-radius:999px;padding:6px 14px;cursor:pointer;
+    font-weight:500;transition:border-color .12s,background .12s,color .12s,box-shadow .12s;display:inline-flex;align-items:center}
+  .stat:hover{border-color:var(--accent)}
+  .stat b{font-size:15px;margin-right:6px;font-variant-numeric:tabular-nums}
+  .stat.on{border-color:var(--accent);color:var(--accent);background:var(--accent-weak);box-shadow:0 0 0 1px var(--accent) inset}
   .stat .run{color:var(--amber)} .stat .ok{color:var(--green)} .stat .no{color:var(--danger)}
-  .search{padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;min-width:220px}
+  .search{min-width:230px}
   .wrap{flex:1;overflow:auto;padding:0 16px 16px}
-  table.grid{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden}
-  table.grid th,table.grid td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
-  table.grid thead th{background:#fafbfc;color:var(--muted);font-weight:600;position:sticky;top:0;z-index:1}
+  table.grid{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1px solid var(--border);
+    border-radius:var(--r-md);overflow:hidden;box-shadow:var(--shadow-sm)}
+  table.grid th,table.grid td{padding:10px 13px;text-align:left;border-bottom:1px solid var(--border);
+    white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+  table.grid tbody tr:last-child td{border-bottom:0}
+  table.grid thead th{background:#f8fafd;color:var(--muted);font-weight:600;font-size:12px;position:sticky;top:0;z-index:1}
   table.grid thead th.sortable{cursor:pointer;user-select:none}
   table.grid thead th.sortable:hover{color:var(--accent)}
-  table.grid tbody tr:hover{background:#fafcff;cursor:pointer}
+  table.grid tbody tr{transition:background .1s}
+  table.grid tbody tr:hover{background:#f7faff;cursor:pointer}
   table.grid td.actions{white-space:nowrap}
-  .pill{display:inline-block;border-radius:10px;padding:1px 9px;font-size:11px;font-weight:600}
-  .pill.run{background:#fff7e6;color:var(--amber)} .pill.ok{background:#eaf7ee;color:var(--green)} .pill.no{background:#fde8e8;color:var(--danger)}
-  .muted{color:var(--muted)}
-  .empty{text-align:center;color:var(--muted);padding:80px 16px} .empty .big{font-size:46px;opacity:.4} .empty a{color:var(--accent)}
-  .foot{padding:8px 16px;color:var(--muted);border-top:1px solid var(--border);background:var(--panel)}
-  /* drawer */
-  .drawer-bg{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;z-index:40}
-  .drawer-bg.show{display:block}
-  .drawer{position:fixed;top:0;right:0;height:100%;width:480px;max-width:94vw;background:#fff;transform:translateX(100%);transition:transform .25s;z-index:41;display:flex;flex-direction:column}
-  .drawer.show{transform:translateX(0)}
-  .drawer header{height:52px;flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:0 16px;border-bottom:1px solid var(--border);font-weight:600}
-  .drawer header .spacer{flex:1}
-  .drawer .dbody{flex:1;overflow:auto;padding:16px}
-  .drawer .dfoot{flex:0 0 auto;display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;border-top:1px solid var(--border)}
-  .sec{font-size:12px;color:var(--muted);font-weight:600;margin:4px 0 8px}
-  .field{margin-bottom:14px} .field>label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
-  .field .req{color:var(--danger);margin-right:2px}
-  .fi{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;background:#fff}
-  textarea.fi{min-height:64px;resize:vertical}
-  .fv{padding:7px 0;border-bottom:1px dashed var(--border);font-size:13px}
-  .opts{display:flex;flex-wrap:wrap;gap:10px} .opt{display:flex;align-items:center;gap:6px}
-  .sw{position:relative;display:inline-block;width:44px;height:24px}.sw input{display:none}
-  .sw span{position:absolute;inset:0;background:#d9d9d9;border-radius:13px;transition:.2s}.sw span::after{content:"";position:absolute;left:3px;top:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:.2s}
-  .sw input:checked+span{background:var(--accent)}.sw input:checked+span::after{transform:translateX(20px)}
-  .stars{font-size:20px;color:#d9d9d9;letter-spacing:3px}.stars span{cursor:pointer}.stars span.on{color:#f5a623}
-  /* timeline */
-  .tl{position:relative;padding-left:20px;margin-top:4px}
-  .tl .step{position:relative;padding-bottom:14px}
-  .tl .step::before{content:"";position:absolute;left:-14px;top:2px;width:10px;height:10px;border-radius:50%;background:#d9d9d9;border:2px solid #fff}
-  .tl .step.ok::before{background:var(--green)}.tl .step.no::before{background:var(--danger)}.tl .step.cur::before{background:var(--accent)}.tl .step.cc::before{background:var(--amber)}
-  .tl::after{content:"";position:absolute;left:-10px;top:4px;bottom:8px;width:2px;background:var(--border)}
-  .tl .nm{font-weight:600;font-size:12px}.tl .meta{color:var(--muted);font-size:12px}
-  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1f2329;color:#fff;padding:9px 16px;border-radius:8px;opacity:0;transition:.25s;pointer-events:none;z-index:90}.toast.show{opacity:.95}
-  /* modal */
-  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;z-index:80}.modal-bg.show{display:flex}
-  .modal{background:#fff;border-radius:10px;width:640px;max-width:92vw;max-height:84vh;display:flex;flex-direction:column;overflow:hidden}
-  .modal header{padding:14px 18px;border-bottom:1px solid var(--border);font-weight:600;display:flex}.modal header .spacer{flex:1}
-  .modal .mbody{padding:16px 18px;overflow:auto}.modal textarea{width:100%;height:340px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;border:1px solid var(--border);border-radius:6px;padding:10px}
-  .modal footer{padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+  table.grid td.actions .btn{margin-right:4px}
+  table.grid input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;cursor:pointer}
+  .foot{padding:9px 16px;color:var(--muted);border-top:1px solid var(--border);background:var(--panel);font-size:12px}
+  /* drawer form density */
+  .field>label{font-size:12px;color:var(--muted)}
+  .tl .nm{font-size:12.5px}
 </style>
 </head>
 <body>
@@ -198,7 +162,7 @@ function render(){
   const sind=k=>sort.key===k?(sort.dir==='asc'?' ▲':' ▼'):'';
   wrap.innerHTML=`<table class="grid"><thead><tr>
     <th style="width:34px"><input type="checkbox" id="selAll"></th>
-    <th class="sortable" data-sort="__status">状态${sind('__status')}</th>${cols.map(f=>`<th class="sortable" data-sort="${f.key}">${esc(f.label)}${sind(f.key)}</th>`).join('')}
+    <th class="sortable" data-sort="__status">状态${sind('__status')}</th>${cols.map(f=>`<th class="sortable" data-sort="${escA(f.key)}">${esc(f.label)}${sind(f.key)}</th>`).join('')}
     <th>当前环节</th><th class="sortable" data-sort="__initiator">发起人${sind('__initiator')}</th><th class="sortable" data-sort="__created">提交时间${sind('__created')}</th><th style="width:200px">操作</th>
   </tr></thead><tbody>${list.map(rowHtml).join('')||`<tr><td colspan="${cols.length+6}" class="muted" style="text-align:center;padding:30px">没有符合条件的记录</td></tr>`}</tbody></table>`;
   document.getElementById('foot').textContent=`共 ${instances.length} 条 · 当前显示 ${list.length} 条`+(selected.size?` · 已选 ${selected.size}`:'');
@@ -298,7 +262,7 @@ function doResubmit(id){ const inst=instances.find(i=>i.id===id); if(!inst)retur
 function bulkDelete(){ if(!selected.size)return; if(!confirm(`删除选中的 ${selected.size} 条记录？`))return; instances.filter(i=>selected.has(i.id)).forEach(srvDelete); instances=instances.filter(i=>!selected.has(i.id)); selected.clear(); saveAll(); render(); toast('已删除'); }
 
 /* ---- field input / read (same scheme as app.html) ---- */
-function fieldInput(f,val){const k=f.key,ph=escA(f.placeholder||'请输入');switch(f.type){
+function fieldInput(f,val){const k=escA(f.key),ph=escA(f.placeholder||'请输入');switch(f.type){
   case 'multi_text':return `<textarea class="fi" data-key="${k}" data-ft="t">${esc(val||'')}</textarea>`;
   case 'number':case 'amount':case 'percent':case 'slider':return `<input class="fi" type="${f.type==='slider'?'range':'number'}" data-key="${k}" data-ft="t" value="${escA(val??'')}" ${f.type==='slider'?`min="${f.min??0}" max="${f.max??100}" step="${f.step??1}"`:'placeholder="0"'}>`;
   case 'date':return `<input class="fi" type="date" data-key="${k}" data-ft="t" value="${escA(val||'')}">`;

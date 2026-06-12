@@ -102,4 +102,36 @@
   }
 
   window.HDY = HDY;
+
+  /* ---- embed link bridge ----
+     Modules run inside the shell as iframes. A plain <a href="form.html"> link
+     would swap the iframe's content while the shell's sidebar/crumb still show
+     the old module. When embedded, reroute internal page links through the
+     shell's hash router instead. */
+  (function () {
+    let embedded = false;
+    try { embedded = window.self !== window.top; } catch (e) { embedded = true; }
+    if (!embedded) return;
+    const ROUTE = {
+      'index.html': 'overview', 'form.html': 'form', 'flow.html': 'flow',
+      'manage.html': 'manage', 'views.html': 'views', 'dashboard.html': 'dashboard',
+      'team.html': 'team', 'app.html': 'fill',
+    };
+    document.addEventListener('click', (e) => {
+      const a = e.target.closest('a[href]');
+      if (!a || a.target === '_blank') return;
+      const href = a.getAttribute('href') || '';
+      if (/^(https?:|mailto:|#)/.test(href)) return;
+      const [pathPart, query] = href.split('?');
+      const page = pathPart.split('/').pop();
+      if (!(page in ROUTE)) return;
+      let dest = ROUTE[page];
+      if (page === 'app.html' && query) {
+        const tab = new URLSearchParams(query).get('tab');
+        if (tab === 'todo' || tab === 'msg') dest = tab;
+      }
+      e.preventDefault();
+      try { window.top.location.hash = dest; } catch (err) { location.href = href; }
+    }, true);
+  })();
 })();

@@ -8,38 +8,34 @@
 <script>try{if(window.self!==window.top)document.documentElement.dataset.embed=1;}catch(e){document.documentElement.dataset.embed=1;}
 addEventListener('DOMContentLoaded',function(){if(document.documentElement.dataset.embed)document.body.classList.add('embedded');});</script>
 <title>团队管理 · Team</title>
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="stylesheet" href="ui.css" />
 <style>
-  :root{--accent:#1677ff;--accent-weak:#e8f1ff;--bg:#f5f6f8;--panel:#fff;--border:#e6e8eb;
-    --text:#1f2329;--muted:#8a8f99;--green:#0a8f4e;--amber:#d48806;--danger:#e5484d}
-  *{box-sizing:border-box}
-  html,body{margin:0;height:100%}
-  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);background:var(--bg);font-size:13px}
-  .app{display:flex;flex-direction:column;height:100vh}
-  .topbar{display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--border);flex:0 0 auto}
-  .topbar .logo{font-weight:700;color:var(--accent);font-size:15px}
-  .topbar .spacer{flex:1}
-  .btn{border:1px solid var(--border);background:#fff;color:var(--text);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-block}
-  .btn:hover{border-color:var(--accent);color:var(--accent)}
-  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-  .wrap{flex:1;overflow:auto;padding:20px;max-width:880px;margin:0 auto;width:100%}
-  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:16px}
-  .card h3{margin:0 0 12px;font-size:15px;display:flex;align-items:center}
+  body{font-size:13px}
+  .app{display:flex;flex-direction:column;height:100vh;height:100dvh}
+  .wrap{flex:1;overflow:auto;padding:22px;max-width:880px;margin:0 auto;width:100%}
+  .card{padding:20px;margin-bottom:16px}
+  .card h3{margin:0 0 14px;font-size:15px;display:flex;align-items:center}
   .card h3 .sub{margin-left:auto;font-size:12px;color:var(--muted);font-weight:400}
-  table{width:100%;border-collapse:collapse}
-  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--border);font-size:13px}
-  th{color:var(--muted);font-weight:600}
-  .role{display:inline-block;border-radius:10px;padding:1px 9px;font-size:11px;font-weight:600}
-  .role.owner{background:#f0eefc;color:#6b46c1}.role.admin{background:var(--accent-weak);color:var(--accent)}
-  .role.member{background:#eaf7ee;color:var(--green)}.role.viewer{background:#f1f2f4;color:var(--muted)}
-  .invite{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
-  .invite .f{display:flex;flex-direction:column;gap:4px}
-  .invite label{font-size:11px;color:var(--muted)}
-  .invite input,.invite select{padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px}
+  table{width:100%;border-collapse:separate;border-spacing:0}
+  th,td{text-align:left;padding:10px 11px;border-bottom:1px solid var(--border);font-size:13px}
+  tbody tr:last-child td{border-bottom:0}
+  th{color:var(--muted);font-weight:600;font-size:12px}
+  tbody tr{transition:background .1s}
+  tbody tr:hover{background:#fafcff}
+  .role{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:600}
+  .role::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+  .role.owner{background:var(--purple-weak);color:var(--purple)}.role.admin{background:var(--accent-weak);color:var(--accent)}
+  .role.member{background:var(--green-weak);color:var(--green)}.role.viewer{background:#eef0f3;color:var(--muted)}
+  .invite{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+  .invite .f{display:flex;flex-direction:column;gap:5px}
+  .invite label{font-size:11px;color:var(--muted);font-weight:500}
+  .invite input,.invite select{padding:9px 11px;border:1px solid var(--border-strong);border-radius:8px;font-size:13px;transition:border-color .15s,box-shadow .15s}
+  .invite input:focus,.invite select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-weak)}
   .log{font-size:12px}
   .log .a{font-weight:600}.log .t{color:var(--muted)}
-  .empty{color:var(--muted);text-align:center;padding:30px}
-  .gate{text-align:center;padding:80px 20px;color:var(--muted)}
-  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1f2329;color:#fff;padding:9px 16px;border-radius:8px;opacity:0;transition:.25s;pointer-events:none;z-index:90}.toast.show{opacity:.95}
+  .gate{text-align:center;padding:80px 20px;color:var(--muted);line-height:1.9}
+  .gate .ico{font-size:46px;margin-bottom:10px}
 </style>
 </head>
 <body>
@@ -60,7 +56,7 @@ const roleLabel=r=>({owner:'所有者',admin:'管理员',member:'成员',viewer:
 async function render(){
   const wrap=document.getElementById('wrap');
   if(!(window.HDY&&HDY.isAuthed())){
-    wrap.innerHTML=`<div class="gate">👥 团队管理需要登录。<br>本地演示模式下没有多用户团队。<br><br><a class="btn primary" href="index.html">去登录 / 注册团队</a></div>`;
+    wrap.innerHTML=`<div class="gate"><div class="ico">👥</div>团队管理需要登录。<br>本地演示模式下没有多用户团队。<br><br><a class="btn primary" href="index.html">去登录 / 注册团队</a></div>`;
     return;
   }
   const me=HDY.me()||{}; document.getElementById('orgName').textContent=(me.org&&me.org.name)||'';

@@ -118,10 +118,11 @@ async function api(req, res, url) {
     if (method === 'POST' && !p[1]) {
       if (!can(ctx.role, 'submit')) return send(res, 403, { error: 'forbidden' });
       const b = await readBody(req);
+      const status = ['running', 'approved', 'rejected'].includes(b.status) ? b.status : 'running';
       const row = await Store.insert('documents', {
         orgId: ctx.orgId, title: b.title || '表单', no: b.no || null,
         data: b.data || {}, steps: b.steps || [], cursor: b.cursor ?? -1,
-        status: b.status || 'running', initiator: user.name, initiatorId: user.id,
+        status, initiator: user.name, initiatorId: user.id,
       });
       audit(ctx.orgId, user.id, 'document.create', { id: row.id, no: row.no });
       return send(res, 201, row);
@@ -130,8 +131,16 @@ async function api(req, res, url) {
     if (method === 'PUT' && id) {
       const cur = Store.find('documents', d => d.id === id && d.orgId === ctx.orgId);
       if (!cur) return send(res, 404, { error: 'not found' });
+      // approvers (or the initiator) may update; viewers may not
+      if (!can(ctx.role, 'approve') && cur.initiatorId !== user.id) return send(res, 403, { error: 'forbidden' });
       const b = await readBody(req);
-      const row = await Store.update('documents', id, b);
+      // whitelist mutable fields so a client can never rewrite orgId/initiator/id
+      const patch = {};
+      for (const k of ['title', 'no', 'data', 'steps', 'cursor', 'status', 'resubmittedAt']) {
+        if (k in b) patch[k] = b[k];
+      }
+      if ('status' in patch && !['running', 'approved', 'rejected'].includes(patch.status)) delete patch.status;
+      const row = await Store.update('documents', id, patch);
       audit(ctx.orgId, user.id, 'document.update', { id, status: row.status });
       return send(res, 200, row);
     }
@@ -193,6 +202,7 @@ async function signup(req, res) {
   const password = b.password || '';
   const orgName = (b.orgName || '').trim();
   if (!email || !password || password.length < 6) return send(res, 400, { error: '邮箱和至少 6 位密码必填' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return send(res, 400, { error: '邮箱格式不正确' });
   if (Store.find('users', u => u.email === email)) return send(res, 409, { error: '该邮箱已注册，请直接登录' });
 
   const org = await Store.insert('orgs', { name: orgName || (email.split('@')[0] + ' 的团队'), plan: 'free' });
@@ -208,23 +218,37 @@ async function login(req, res) {
   const email = (b.email || '').toLowerCase().trim();
   const user = Store.find('users', u => u.email === email);
   if (!user || !verifyPassword(b.password || '', user.password)) return send(res, 401, { error: '邮箱或密码错误' });
-  const mem = Store.find('members', m => m.userId === user.id && m.orgId === user.orgId);
+  let mem = Store.find('members', m => m.userId === user.id && m.orgId === user.orgId);
+  if (!mem) {
+    // active org has no membership (e.g. invited into another org) — fall back
+    // to the first org this user belongs to so they aren't locked out
+    mem = Store.find('members', m => m.userId === user.id);
+    if (mem) { await Store.update('users', user.id, { orgId: mem.orgId }); user.orgId = mem.orgId; }
+  }
+  if (!mem) return send(res, 403, { error: '该账号不属于任何团队' });
   const org = Store.find('orgs', o => o.id === user.orgId);
   const token = signToken({ uid: user.id });
-  return send(res, 200, { token, user: pubUser(user), org, role: mem ? mem.role : 'member' });
+  return send(res, 200, { token, user: pubUser(user), org, role: mem.role });
 }
 
 /* ---------------- static files ---------------- */
 function serveStatic(req, res, url) {
-  let rel = decodeURIComponent(url.pathname);
-  if (rel === '/' ) rel = '/index.html';
-  const filePath = path.join(WEB_DIR, path.normalize(rel));
-  if (!filePath.startsWith(WEB_DIR)) return send(res, 403, { error: 'forbidden' });
+  let rel;
+  try { rel = decodeURIComponent(url.pathname); }
+  catch (e) { return send(res, 400, { error: 'bad request' }); }
+  if (rel.includes('\0')) return send(res, 400, { error: 'bad request' });
+  if (rel === '/') rel = '/index.html';
+  const filePath = path.join(WEB_DIR, path.normalize('/' + rel));
+  if (filePath !== WEB_DIR && !filePath.startsWith(WEB_DIR + path.sep)) return send(res, 403, { error: 'forbidden' });
   fs.readFile(filePath, (err, buf) => {
     if (err) {
-      // SPA-ish fallback to the shell
-      return fs.readFile(path.join(WEB_DIR, 'index.html'), (e2, b2) =>
-        e2 ? send(res, 404, { error: 'not found' }) : res.writeHead(200, { 'Content-Type': 'text/html' }) & res.end(b2));
+      // asset-like paths (with an extension) get a real 404; pages fall back to the shell
+      if (path.extname(filePath)) return send(res, 404, { error: 'not found' });
+      return fs.readFile(path.join(WEB_DIR, 'index.html'), (e2, b2) => {
+        if (e2) return send(res, 404, { error: 'not found' });
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(b2);
+      });
     }
     const ext = path.extname(filePath);
     res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
@@ -239,6 +263,7 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
   if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
 
   try {
